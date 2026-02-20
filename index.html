@@ -1,15 +1,716 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>3D Room Editor</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Room Arranger - Auto Load Models</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        #panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 280px;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+            border: 1px solid #444;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        #panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #ffaa00;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .model-section {
+            margin-bottom: 20px;
+        }
+        .model-section h4 {
+            margin: 10px 0;
+            color: #ddd;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+        .model-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .model-item {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #444;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .model-item:hover {
+            background: #3a3a3a;
+            border-color: #ffaa00;
+            transform: translateX(5px);
+        }
+        .model-item.loading {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .model-icon {
+            font-size: 20px;
+        }
+        .model-info {
+            flex: 1;
+        }
+        .model-name {
+            font-weight: bold;
+        }
+        .model-status {
+            font-size: 11px;
+            color: #888;
+        }
+        .room-controls {
+            border-top: 1px solid #444;
+            padding-top: 15px;
+            margin-top: 10px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .control-group input {
+            width: 100%;
+            padding: 8px;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .dimension-inputs {
+            display: flex;
+            gap: 10px;
+        }
+        .dimension-inputs .control-group {
+            flex: 1;
+        }
+        button {
+            background: #ffaa00;
+            color: black;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #ffbb22;
+        }
+        button.secondary {
+            background: #444;
+            color: white;
+        }
+        button.secondary:hover {
+            background: #555;
+        }
+        #status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 100;
+            border: 1px solid #ffaa00;
+        }
+        #stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #ffaa00;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ffaa00;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .error-message {
+            color: #ff6b6b;
+            padding: 10px;
+            background: rgba(255,0,0,0.1);
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+    </style>
 </head>
 <body>
-  <div id="model-panel"></div>
-  <div id="info">Click a model to add it to the room. Use gizmos to move/rotate/scale.</div>
+    <div id="panel">
+        <h3>
+            <span>🏠 Room Arranger</span>
+            <span style="font-size: 12px; color: #888; margin-left: auto;">v1.0</span>
+        </h3>
+        
+        <div class="model-section">
+            <h4>📦 Available Models</h4>
+            <div id="model-list" class="model-list">
+                <div class="model-item loading">
+                    <span class="loading-spinner"></span>
+                    <span>Scanning models folder...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="room-controls">
+            <h4>🎚️ Room Settings</h4>
+            <div class="dimension-inputs">
+                <div class="control-group">
+                    <label>Width (m)</label>
+                    <input type="number" id="room-width" value="5" min="2" max="10" step="0.5">
+                </div>
+                <div class="control-group">
+                    <label>Length (m)</label>
+                    <input type="number" id="room-length" value="5" min="2" max="10" step="0.5">
+                </div>
+            </div>
+            <button id="update-room">Update Room</button>
+            <button id="clear-room" class="secondary">🗑️ Clear All Furniture</button>
+        </div>
+    </div>
+    
+    <div id="status">Ready</div>
+    <div id="stats">Models: 0 | Objects: 0</div>
 
-  <script type="module" src="app.js"></script>
+    <!-- Import Three.js and required libraries -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TransformControls } from 'three/addons/controls/TransformControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // --- Initialize Scene ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111122);
+
+        // --- Camera ---
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(8, 6, 8);
+        camera.lookAt(0, 0, 0);
+
+        // --- Renderer ---
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.05;
+        orbitControls.screenSpacePanning = true;
+        orbitControls.maxPolarAngle = Math.PI / 2;
+
+        // --- Transform Controls (Gizmos) ---
+        const transformControls = new TransformControls(camera, renderer.domElement);
+        transformControls.setMode('translate');
+        transformControls.addEventListener('dragging-changed', function (event) {
+            orbitControls.enabled = !event.value;
+        });
+        
+        // Snap to floor when transforming
+        transformControls.addEventListener('objectChange', function () {
+            if (transformControls.object) {
+                // Snap Y to 0 (floor level)
+                const pos = transformControls.object.position;
+                pos.y = 0;
+            }
+        });
+        
+        scene.add(transformControls);
+
+        // --- Lighting ---
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+
+        // Main directional light (sun)
+        const sunLight = new THREE.DirectionalLight(0xffeedd, 1);
+        sunLight.position.set(5, 10, 7);
+        sunLight.castShadow = true;
+        sunLight.receiveShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        const d = 10;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.camera.near = 1;
+        sunLight.shadow.camera.far = 15;
+        scene.add(sunLight);
+
+        // Fill light
+        const fillLight = new THREE.PointLight(0x4466ff, 0.3);
+        fillLight.position.set(-3, 5, 5);
+        scene.add(fillLight);
+
+        // Back light
+        const backLight = new THREE.PointLight(0xffaa88, 0.2);
+        backLight.position.set(0, 3, -5);
+        scene.add(backLight);
+
+        // --- Floor Grid ---
+        const gridHelper = new THREE.GridHelper(20, 20, 0xffaa00, 0x333333);
+        gridHelper.position.y = 0;
+        scene.add(gridHelper);
+
+        // Add subtle axis helper
+        const axesHelper = new THREE.AxesHelper(5);
+        // scene.add(axesHelper); // Uncomment if needed
+
+        // --- Room Container ---
+        let roomGroup = new THREE.Group();
+        scene.add(roomGroup);
+
+        // --- Furniture Collection ---
+        const furniture = [];
+        let selectedObject = null;
+
+        // --- Loaders ---
+        const gltfLoader = new GLTFLoader();
+        
+        // Model cache
+        const modelCache = new Map();
+
+        // --- Available models list (will be populated dynamically) ---
+        const availableModels = [];
+
+        // --- Function to scan models folder ---
+        async function scanModelsFolder() {
+            const modelListElement = document.getElementById('model-list');
+            
+            try {
+                // Try to fetch the models folder listing
+                // Note: This requires your server to allow directory listing
+                // Alternative: You can manually specify models or use a models.json file
+                
+                // For GitHub Pages, we'll use a different approach
+                // Let's try to fetch a models.json file first
+                const response = await fetch('models/models.json');
+                if (response.ok) {
+                    const modelData = await response.json();
+                    availableModels.push(...modelData);
+                } else {
+                    // If no models.json, try to get .glb files from the folder
+                    // This is a fallback - you might need to manually list them
+                    console.warn('No models.json found, using default list');
+                    
+                    // Default model list - replace with your actual model names
+                    const defaultModels = [
+                        'chair', 'table', 'sofa', 'bed', 'lamp', 
+                        'bookshelf', 'desk', 'cabinet', 'nightstand'
+                    ];
+                    
+                    // Check which ones actually exist by trying to load them
+                    for (const modelName of defaultModels) {
+                        try {
+                            const response = await fetch(`models/${modelName}.glb`, { method: 'HEAD' });
+                            if (response.ok) {
+                                availableModels.push({
+                                    name: modelName,
+                                    file: `${modelName}.glb`,
+                                    icon: getIconForModel(modelName)
+                                });
+                            }
+                        } catch (e) {
+                            // Model doesn't exist, skip
+                        }
+                    }
+                }
+                
+                // Update UI with available models
+                updateModelList();
+                
+            } catch (error) {
+                console.error('Error scanning models folder:', error);
+                modelListElement.innerHTML = `
+                    <div class="error-message">
+                        Could not load models. Make sure your models are in the /models/ folder.
+                        <br><small>Error: ${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Helper function to get icon for model type
+        function getIconForModel(name) {
+            const icons = {
+                chair: '🪑',
+                table: '🍽️',
+                sofa: '🛋️',
+                bed: '🛏️',
+                lamp: '💡',
+                bookshelf: '📚',
+                desk: '💻',
+                cabinet: '🗄️',
+                nightstand: '🔮'
+            };
+            return icons[name.toLowerCase()] || '📦';
+        }
+
+        // Update the model list UI
+        function updateModelList() {
+            const modelListElement = document.getElementById('model-list');
+            
+            if (availableModels.length === 0) {
+                modelListElement.innerHTML = `
+                    <div class="error-message">
+                        No models found in /models/ folder.
+                        <br><small>Add .glb files to the models directory</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            modelListElement.innerHTML = availableModels.map(model => `
+                <div class="model-item" data-model="${model.name}" data-file="${model.file}">
+                    <span class="model-icon">${model.icon}</span>
+                    <div class="model-info">
+                        <div class="model-name">${model.name}</div>
+                        <div class="model-status">${model.file}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Add click handlers to model items
+            document.querySelectorAll('.model-item').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const modelName = item.dataset.model;
+                    const modelFile = item.dataset.file;
+                    await loadModel(modelName, modelFile);
+                });
+            });
+            
+            updateStats();
+        }
+
+        // --- Load a GLB model ---
+        async function loadModel(modelName, modelFile) {
+            const modelItem = document.querySelector(`[data-model="${modelName}"]`);
+            const originalText = modelItem.innerHTML;
+            
+            try {
+                // Update UI to show loading
+                modelItem.classList.add('loading');
+                modelItem.innerHTML = `
+                    <span class="loading-spinner"></span>
+                    <span>Loading ${modelName}...</span>
+                `;
+                
+                document.getElementById('status').textContent = `Loading ${modelName}...`;
+                
+                // Check if model is in cache
+                let modelScene;
+                if (modelCache.has(modelName)) {
+                    modelScene = modelCache.get(modelName).clone();
+                } else {
+                    // Load the model
+                    const gltf = await gltfLoader.loadAsync(`models/${modelFile}`);
+                    modelScene = gltf.scene;
+                    
+                    // Cache the original
+                    modelCache.set(modelName, modelScene.clone());
+                }
+                
+                // Setup the model
+                modelScene.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        // Ensure materials are properly set
+                        if (node.material) {
+                            if (Array.isArray(node.material)) {
+                                node.material.forEach(m => {
+                                    m.needsUpdate = true;
+                                });
+                            } else {
+                                node.material.needsUpdate = true;
+                            }
+                        }
+                    }
+                });
+                
+                // Center and scale the model appropriately
+                const box = new THREE.Box3().setFromObject(modelScene);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+                
+                // Scale to reasonable size (max dimension 1 unit)
+                const maxDim = Math.max(size.x, size.y, size.z);
+                if (maxDim > 1.5) {
+                    modelScene.scale.multiplyScalar(1.5 / maxDim);
+                }
+                
+                // Center the model
+                modelScene.position.sub(center);
+                modelScene.position.y = 0; // Snap to floor
+                
+                // Position at random location within room
+                const roomWidth = parseFloat(document.getElementById('room-width').value);
+                const roomLength = parseFloat(document.getElementById('room-length').value);
+                
+                modelScene.position.x = (Math.random() - 0.5) * (roomWidth - 1);
+                modelScene.position.z = (Math.random() - 0.5) * (roomLength - 1);
+                
+                // Add to scene
+                modelScene.userData = {
+                    type: modelName,
+                    selectable: true,
+                    id: Date.now() + Math.random()
+                };
+                
+                scene.add(modelScene);
+                furniture.push(modelScene);
+                
+                // Update UI
+                document.getElementById('status').textContent = `${modelName} added to room`;
+                updateStats();
+                
+            } catch (error) {
+                console.error('Error loading model:', error);
+                document.getElementById('status').textContent = `Error loading ${modelName}`;
+                alert(`Failed to load model: ${modelName}\n\nError: ${error.message}`);
+            } finally {
+                // Restore model item
+                modelItem.classList.remove('loading');
+                modelItem.innerHTML = originalText;
+            }
+        }
+
+        // --- Create Walls and Floor ---
+        function createRoom(width, length) {
+            // Clear previous room
+            while(roomGroup.children.length > 0) {
+                roomGroup.remove(roomGroup.children[0]);
+            }
+            
+            const wallHeight = 3;
+            const wallThickness = 0.2;
+            
+            // Floor (semi-transparent)
+            const floorGeo = new THREE.PlaneGeometry(width, length);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: 0x2a2a3a,
+                transparent: true,
+                opacity: 0.2,
+                side: THREE.DoubleSide
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = 0.01; // Slightly above grid to prevent z-fighting
+            floor.receiveShadow = true;
+            roomGroup.add(floor);
+            
+            // Walls material
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                color: 0x4a6c8f,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            
+            // North wall (+Z)
+            const northWall = new THREE.Mesh(new THREE.BoxGeometry(width, wallHeight, wallThickness), wallMat);
+            northWall.position.set(0, wallHeight/2, length/2);
+            northWall.castShadow = true;
+            northWall.receiveShadow = true;
+            roomGroup.add(northWall);
+            
+            // South wall (-Z)
+            const southWall = new THREE.Mesh(new THREE.BoxGeometry(width, wallHeight, wallThickness), wallMat);
+            southWall.position.set(0, wallHeight/2, -length/2);
+            southWall.castShadow = true;
+            southWall.receiveShadow = true;
+            roomGroup.add(southWall);
+            
+            // East wall (+X)
+            const eastWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, length), wallMat);
+            eastWall.position.set(width/2, wallHeight/2, 0);
+            eastWall.castShadow = true;
+            eastWall.receiveShadow = true;
+            roomGroup.add(eastWall);
+            
+            // West wall (-X)
+            const westWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, length), wallMat);
+            westWall.position.set(-width/2, wallHeight/2, 0);
+            westWall.castShadow = true;
+            westWall.receiveShadow = true;
+            roomGroup.add(westWall);
+            
+            // Add baseboards
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x8b8b8b });
+            const baseHeight = 0.2;
+            
+            const northBase = new THREE.Mesh(new THREE.BoxGeometry(width, baseHeight, 0.1), baseMat);
+            northBase.position.set(0, baseHeight/2, length/2 - 0.05);
+            roomGroup.add(northBase);
+            
+            const southBase = new THREE.Mesh(new THREE.BoxGeometry(width, baseHeight, 0.1), baseMat);
+            southBase.position.set(0, baseHeight/2, -length/2 + 0.05);
+            roomGroup.add(southBase);
+            
+            const eastBase = new THREE.Mesh(new THREE.BoxGeometry(0.1, baseHeight, length), baseMat);
+            eastBase.position.set(width/2 - 0.05, baseHeight/2, 0);
+            roomGroup.add(eastBase);
+            
+            const westBase = new THREE.Mesh(new THREE.BoxGeometry(0.1, baseHeight, length), baseMat);
+            westBase.position.set(-width/2 + 0.05, baseHeight/2, 0);
+            roomGroup.add(westBase);
+        }
+
+        // Initialize room
+        createRoom(5, 5);
+
+        // --- Raycaster for selecting objects ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Mouse click handler for selection
+        renderer.domElement.addEventListener('click', (event) => {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+            mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Check for intersections with furniture
+            const intersects = raycaster.intersectObjects(furniture, true); // true for recursive
+            
+            if (intersects.length > 0) {
+                // Find the top-level furniture object
+                let selected = intersects[0].object;
+                while (selected.parent && !furniture.includes(selected)) {
+                    selected = selected.parent;
+                }
+                
+                if (furniture.includes(selected)) {
+                    transformControls.attach(selected);
+                    selectedObject = selected;
+                    document.getElementById('status').textContent = `Selected: ${selected.userData.type || 'object'}`;
+                }
+            } else {
+                transformControls.detach();
+                selectedObject = null;
+                document.getElementById('status').textContent = 'Ready';
+            }
+        });
+
+        // --- Event Listeners for UI ---
+        document.getElementById('update-room').addEventListener('click', () => {
+            const width = parseFloat(document.getElementById('room-width').value);
+            const length = parseFloat(document.getElementById('room-length').value);
+            createRoom(width, length);
+            
+            // Reposition furniture to be within new room bounds
+            furniture.forEach(item => {
+                const pos = item.position;
+                pos.x = Math.max(-width/2 + 0.5, Math.min(width/2 - 0.5, pos.x));
+                pos.z = Math.max(-length/2 + 0.5, Math.min(length/2 - 0.5, pos.z));
+            });
+            
+            document.getElementById('status').textContent = `Room updated to ${width}m x ${length}m`;
+        });
+
+        document.getElementById('clear-room').addEventListener('click', () => {
+            // Remove all furniture from scene
+            furniture.forEach(item => {
+                scene.remove(item);
+            });
+            furniture.length = 0;
+            transformControls.detach();
+            updateStats();
+            document.getElementById('status').textContent = 'All furniture cleared';
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('stats').innerHTML = `Models: ${availableModels.length} | Objects: ${furniture.length}`;
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            orbitControls.update();
+            
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+
+        // Start scanning for models
+        scanModelsFolder();
+
+        console.log('Room Arranger initialized');
+    </script>
 </body>
 </html>
