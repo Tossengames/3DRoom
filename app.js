@@ -1,88 +1,99 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { TransformControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/TransformControls.js';
 
 // --- Scene ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x111111);
+scene.background = new THREE.Color(0xaaaaaa);
 
 // --- Camera ---
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  100
-);
-camera.position.set(0, 2, 5);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(5, 5, 5);
 
 // --- Renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // --- Lights ---
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(5, 10, 5);
+dirLight.position.set(10, 10, 10);
+dirLight.castShadow = true;
 scene.add(dirLight);
 
+// --- Floor ---
+const floorGeo = new THREE.PlaneGeometry(20, 20);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
 // --- Controls ---
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.enablePan = true;
 
-// --- Load Models ---
+// --- Loaders ---
 const loader = new GLTFLoader();
-const objects = [];
+const models = [
+  { name: 'Chair', file: 'models/chair.glb' },
+  { name: 'Table', file: 'models/table.glb' }
+];
 
-function loadModel(path, x) {
-  loader.load(path, (gltf) => {
-    const model = gltf.scene;
-    model.position.set(x, 0, 0);
-    model.scale.set(1, 1, 1);
-    scene.add(model);
-    objects.push(model);
-  });
-}
+const objectsInScene = [];
+let selectedObject = null;
 
-loadModel("models/chair.glb", -1.5);
-loadModel("models/table.glb", 1.5);
+// --- Transform Controls ---
+const transform = new TransformControls(camera, renderer.domElement);
+transform.addEventListener('dragging-changed', function (event) {
+  orbit.enabled = !event.value;
+});
+scene.add(transform);
 
-// --- Interaction ---
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-let selected = null;
-let mode = "rotate";
+// --- UI Panel ---
+const panel = document.getElementById('model-panel');
+models.forEach((m) => {
+  const btn = document.createElement('button');
+  btn.className = 'model-btn';
+  btn.textContent = m.name;
+  btn.onclick = () => {
+    loader.load(m.file, (gltf) => {
+      const model = gltf.scene;
+      model.position.set(0, 0, 0);
+      model.scale.set(1, 1, 1);
+      model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      scene.add(model);
+      objectsInScene.push(model);
+      selectedObject = model;
+      transform.attach(selectedObject);
+    });
+  };
+  panel.appendChild(btn);
+});
 
-// --- UI ---
-document.getElementById("rotateBtn").onclick = () => mode = "rotate";
-document.getElementById("moveBtn").onclick = () => mode = "move";
-
-// --- Pointer Events ---
-window.addEventListener("pointerdown", (e) => {
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+// --- Pointer select ---
+window.addEventListener('pointerdown', (e) => {
+  const mouse = new THREE.Vector2(
+    (e.clientX / window.innerWidth) * 2 - 1,
+    -(e.clientY / window.innerHeight) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(objects, true);
-  if (hits.length) selected = hits[0].object.parent;
-});
-
-window.addEventListener("pointermove", (e) => {
-  if (!selected) return;
-
-  if (mode === "rotate") {
-    selected.rotation.y += e.movementX * 0.01;
-  }
-
-  if (mode === "move") {
-    selected.position.x += e.movementX * 0.005;
-    selected.position.z += e.movementY * 0.005;
+  const intersects = raycaster.intersectObjects(objectsInScene, true);
+  if (intersects.length > 0) {
+    selectedObject = intersects[0].object.parent;
+    transform.attach(selectedObject);
   }
 });
-
-window.addEventListener("pointerup", () => selected = null);
 
 // --- Resize ---
-window.addEventListener("resize", () => {
+window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -91,7 +102,16 @@ window.addEventListener("resize", () => {
 // --- Animate ---
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
+  orbit.update();
   renderer.render(scene, camera);
 }
 animate();
+
+// --- Optional: switch transform mode via keys ---
+window.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'g': transform.setMode('translate'); break;
+    case 'r': transform.setMode('rotate'); break;
+    case 's': transform.setMode('scale'); break;
+  }
+});
