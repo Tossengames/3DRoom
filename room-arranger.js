@@ -8,7 +8,7 @@
 // ── GitHub repo config ─────────────────────────────────────────────
 const GITHUB_USER = 'Tossengames';
 const GITHUB_REPO = '3DRoom';
-const GITHUB_BRANCH = 'main'; // change to 'master' if needed
+const GITHUB_BRANCH = 'main';
 const MODELS_FOLDER = 'models';
 // ──────────────────────────────────────────────────────────────────
 
@@ -45,8 +45,25 @@ const CATEGORY_MAP = [
   [['lamp','light','plant','tree','tv','rug','mirror','picture','frame','curtain','blind'], 'Decor'],
 ];
 
+// Colors for customization
+let roomColors = {
+  floor: 0x1a1a20,
+  walls: 0x252530,
+  ambientLight: 0xffffff,
+  directionalLight: 0xffeedd,
+  fillLight: 0x5b8cff
+};
+
+let lights = {
+  ambient: null,
+  directional: null,
+  fill: null
+};
+
+// Mobile mode detection
+let isMobile = window.innerWidth <= 768;
+
 function fileToName(filename) {
-  // sofa_chair.glb → "Sofa Chair"
   return filename
     .replace(/\.glb$/i, '')
     .replace(/[-_]/g, ' ')
@@ -91,7 +108,6 @@ async function fetchModelsFromGitHub() {
         category: nameToCategory(name),
       };
     });
-    // Sort by category then name
     MODELS.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     populateModelList();
   } catch (err) {
@@ -122,9 +138,15 @@ let roomW = 10, roomL = 8, roomH = 3;
 let wallsVisible = true;
 let gridVisible = true;
 let isOrbitDragging = false;
-let uniformScaleEnabled = false; // Toggle for uniform scaling
+let uniformScaleEnabled = false;
 
-// GLTFLoader (r128 compatible — loaded via ES module shim below)
+// Mobile interaction states
+let touchStartDistance = 0;
+let touchStartPan = { x: 0, y: 0 };
+let isPinching = false;
+let isTwoFingerPan = false;
+
+// GLTFLoader
 let GLTFLoader;
 
 // ─────────────────────────────────────────────────────────────────────
@@ -139,15 +161,22 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindUI();
   animate();
   hideLoading();
+  
+  // Listen for resize to update mobile detection
+  window.addEventListener('resize', () => {
+    isMobile = window.innerWidth <= 768;
+    if (transformControls) {
+      transformControls.enabled = !isMobile; // Disable gizmos on mobile
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// GLTFLoader loader (CDN, compatible with r128)
+// GLTFLoader loader
 // ─────────────────────────────────────────────────────────────────────
 async function loadGLTFLoader() {
   return new Promise((resolve) => {
     const s = document.createElement('script');
-    // Use the r128 GLTFLoader from CDN (UMD build)
     s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
     s.onload = () => {
       GLTFLoader = THREE.GLTFLoader;
@@ -155,11 +184,10 @@ async function loadGLTFLoader() {
     };
     s.onerror = () => {
       console.warn('GLTFLoader CDN failed, trying alternative…');
-      // Fallback
       const s2 = document.createElement('script');
       s2.src = 'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js';
       s2.onload = () => { GLTFLoader = THREE.GLTFLoader; resolve(); };
-      s2.onerror = () => resolve(); // graceful fail
+      s2.onerror = () => resolve();
       document.head.appendChild(s2);
     };
     document.head.appendChild(s);
@@ -173,7 +201,6 @@ function initScene() {
   const canvas = document.getElementById('three-canvas');
   const vp = document.getElementById('viewport');
 
-  // Renderer
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(vp.clientWidth, vp.clientHeight);
@@ -183,54 +210,47 @@ function initScene() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
 
-  // Scene
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0a0a0e);
   scene.fog = new THREE.FogExp2(0x0a0a0e, 0.012);
 
-  // Camera
   camera = new THREE.PerspectiveCamera(55, vp.clientWidth / vp.clientHeight, 0.1, 500);
   camera.position.set(8, 9, 12);
   camera.lookAt(0, 0, 0);
 
-  // Raycaster
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
   // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambient);
+  lights.ambient = new THREE.AmbientLight(roomColors.ambientLight, 0.5);
+  scene.add(lights.ambient);
 
-  const dirLight = new THREE.DirectionalLight(0xffeedd, 1.2);
-  dirLight.position.set(10, 20, 10);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(2048, 2048);
-  dirLight.shadow.camera.near = 0.5;
-  dirLight.shadow.camera.far = 100;
-  dirLight.shadow.camera.left = -30;
-  dirLight.shadow.camera.right = 30;
-  dirLight.shadow.camera.top = 30;
-  dirLight.shadow.camera.bottom = -30;
-  dirLight.shadow.bias = -0.001;
-  scene.add(dirLight);
+  lights.directional = new THREE.DirectionalLight(roomColors.directionalLight, 1.2);
+  lights.directional.position.set(10, 20, 10);
+  lights.directional.castShadow = true;
+  lights.directional.shadow.mapSize.set(2048, 2048);
+  lights.directional.shadow.camera.near = 0.5;
+  lights.directional.shadow.camera.far = 100;
+  lights.directional.shadow.camera.left = -30;
+  lights.directional.shadow.camera.right = 30;
+  lights.directional.shadow.camera.top = 30;
+  lights.directional.shadow.camera.bottom = -30;
+  lights.directional.shadow.bias = -0.001;
+  scene.add(lights.directional);
 
-  const fillLight = new THREE.PointLight(0x5b8cff, 0.4, 50);
-  fillLight.position.set(-8, 5, -8);
-  scene.add(fillLight);
+  lights.fill = new THREE.PointLight(roomColors.fillLight, 0.4, 50);
+  lights.fill.position.set(-8, 5, -8);
+  scene.add(lights.fill);
 
-  // Orbit Controls (manual, no external dep)
   setupOrbitControls();
-
-  // Transform Controls (manual gizmo)
   setupTransformGizmo();
 
-  // Resize
   window.addEventListener('resize', onResize);
   onResize();
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Manual Orbit Controls
+// Manual Orbit Controls (Enhanced for mobile)
 // ─────────────────────────────────────────────────────────────────────
 const orbit = {
   isRMB: false, isMid: false,
@@ -250,7 +270,7 @@ function setupOrbitControls() {
   canvas.addEventListener('mouseup', onCanvasMouseUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
 
-  // Touch
+  // Touch events for mobile
   canvas.addEventListener('touchstart', onTouchStart, { passive: false });
   canvas.addEventListener('touchmove', onTouchMove, { passive: false });
   canvas.addEventListener('touchend', onTouchEnd);
@@ -270,11 +290,28 @@ let touchCache = [];
 let prevPinchDist = null;
 
 function onTouchStart(e) {
+  e.preventDefault();
   touchCache = Array.from(e.touches);
+  
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Store center point for panning
+    touchStartPan.x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    touchStartPan.y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    
+    isPinching = true;
+    isTwoFingerPan = false;
+  }
 }
+
 function onTouchMove(e) {
   e.preventDefault();
-  if (e.touches.length === 1) {
+  
+  if (e.touches.length === 1 && !isPinching) {
+    // Single finger rotate
     const t = e.touches[0];
     if (touchCache.length >= 1) {
       const dx = t.clientX - touchCache[0].clientX;
@@ -284,19 +321,57 @@ function onTouchMove(e) {
       updateCameraFromOrbit();
     }
   } else if (e.touches.length === 2) {
-    const d = Math.hypot(
-      e.touches[0].clientX - e.touches[1].clientX,
-      e.touches[0].clientY - e.touches[1].clientY
-    );
-    if (prevPinchDist !== null) {
-      orbit.radius *= prevPinchDist / d;
-      updateCameraFromOrbit();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Get current center point
+    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    
+    if (Math.abs(distance - touchStartDistance) > 10) {
+      // Pinch zoom
+      if (prevPinchDist !== null) {
+        orbit.radius *= prevPinchDist / distance;
+        updateCameraFromOrbit();
+        isTwoFingerPan = false;
+      }
+      prevPinchDist = distance;
+    } else {
+      // Two finger pan
+      if (!isTwoFingerPan) {
+        isTwoFingerPan = true;
+      } else {
+        const panX = (centerX - touchStartPan.x) * 0.01 * orbit.radius;
+        const panY = (centerY - touchStartPan.y) * 0.01 * orbit.radius;
+        
+        // Calculate pan directions
+        const right = new THREE.Vector3();
+        right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+        const up = camera.up.clone();
+        
+        orbit.target.addScaledVector(right, -panX);
+        orbit.target.addScaledVector(up, panY);
+        updateCameraFromOrbit();
+      }
     }
-    prevPinchDist = d;
+    
+    // Update start positions for next move
+    touchStartPan.x = centerX;
+    touchStartPan.y = centerY;
+    touchStartDistance = distance;
   }
+  
   touchCache = Array.from(e.touches);
 }
-function onTouchEnd(e) { prevPinchDist = null; touchCache = []; }
+
+function onTouchEnd(e) {
+  e.preventDefault();
+  prevPinchDist = null;
+  touchCache = [];
+  isPinching = false;
+  isTwoFingerPan = false;
+}
 
 function onCanvasMouseDown(e) {
   if (e.button === 2) { orbit.isRMB = true; isOrbitDragging = false; }
@@ -304,43 +379,42 @@ function onCanvasMouseDown(e) {
   orbit.lastX = e.clientX;
   orbit.lastY = e.clientY;
 }
+
 function onCanvasMouseMove(e) {
   const dx = e.clientX - orbit.lastX;
   const dy = e.clientY - orbit.lastY;
+  
   if (orbit.isRMB) {
     if (Math.abs(dx) + Math.abs(dy) > 2) isOrbitDragging = true;
     orbit.theta -= dx * 0.004;
     orbit.phi -= dy * 0.004;
     updateCameraFromOrbit();
   }
+  
   if (orbit.isMid) {
-    // Pan
-    const right = new THREE.Vector3();
-    const up = new THREE.Vector3();
-    camera.getWorldDirection(up);
-    right.crossVectors(up, camera.up).normalize();
-    // Actually pan in camera plane
     const panSpeed = orbit.radius * 0.001;
     const panRight = new THREE.Vector3().crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
     orbit.target.addScaledVector(panRight, -dx * panSpeed);
     orbit.target.y += dy * panSpeed;
     updateCameraFromOrbit();
   }
+  
   orbit.lastX = e.clientX;
   orbit.lastY = e.clientY;
-
-  // Update gizmo hover
   updateMouseCoords(e);
 }
+
 function onCanvasMouseUp(e) {
   orbit.isRMB = false;
   orbit.isMid = false;
 }
+
 function onWheel(e) {
   e.preventDefault();
   orbit.radius *= 1 + e.deltaY * 0.001;
   updateCameraFromOrbit();
 }
+
 function updateMouseCoords(e) {
   const vp = document.getElementById('viewport');
   const rect = vp.getBoundingClientRect();
@@ -349,10 +423,11 @@ function updateMouseCoords(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Transform Gizmo (using TransformControls from CDN)
+// Transform Gizmo (Disabled on mobile)
 // ─────────────────────────────────────────────────────────────────────
 function setupTransformGizmo() {
-  // Load TransformControls
+  if (isMobile) return; // Don't load gizmos on mobile
+  
   const s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js';
   s.onload = () => {
@@ -361,13 +436,11 @@ function setupTransformGizmo() {
     scene.add(transformControls);
 
     transformControls.addEventListener('dragging-changed', (e) => {
-      // Disable orbit while dragging gizmo
       orbit.isRMB = false;
       orbit.isMid = false;
     });
     transformControls.addEventListener('change', () => {
       if (selectedObject) {
-        // Snap to floor on Y
         snapToFloor(selectedObject);
         updatePropsPanel();
       }
@@ -380,7 +453,6 @@ function setupTransformGizmo() {
     });
   };
   s.onerror = () => {
-    // Fallback alt CDN
     const s2 = document.createElement('script');
     s2.src = 'https://unpkg.com/three@0.128.0/examples/js/controls/TransformControls.js';
     s2.onload = s.onload;
@@ -390,22 +462,22 @@ function setupTransformGizmo() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Room building
+// Room building with customizable colors
 // ─────────────────────────────────────────────────────────────────────
 function buildRoom(w, l, h) {
-  // Remove old
   if (floor) scene.remove(floor);
   walls.forEach(w => scene.remove(w));
   walls = [];
   if (gridHelper) scene.remove(gridHelper);
 
   const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a20,
+    color: roomColors.floor,
     roughness: 0.9,
     metalness: 0.0,
   });
+  
   const wallMat = new THREE.MeshStandardMaterial({
-    color: 0x252530,
+    color: roomColors.walls,
     roughness: 0.85,
     metalness: 0.0,
     side: THREE.FrontSide,
@@ -431,15 +503,11 @@ function buildRoom(w, l, h) {
   gridHelper.name = '__grid';
   scene.add(gridHelper);
 
-  // Walls (4 sides)
+  // Walls
   const wallDefs = [
-    // back (Z-)
     { pos: [0, h/2, -l/2], rot: [0, 0, 0],         size: [w, h] },
-    // front (Z+)
     { pos: [0, h/2,  l/2], rot: [0, Math.PI, 0],   size: [w, h] },
-    // left (X-)
     { pos: [-w/2, h/2, 0], rot: [0, Math.PI/2, 0], size: [l, h] },
-    // right (X+)
     { pos: [ w/2, h/2, 0], rot: [0,-Math.PI/2, 0], size: [l, h] },
   ];
 
@@ -476,21 +544,45 @@ function buildRoom(w, l, h) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Snap to floor (improved)
+// Color customization
+// ─────────────────────────────────────────────────────────────────────
+function updateColors() {
+  // Update floor material
+  if (floor && floor.material) {
+    floor.material.color.setHex(roomColors.floor);
+  }
+  
+  // Update walls
+  walls.forEach(wall => {
+    if (wall.isMesh && wall.material) {
+      wall.material.color.setHex(roomColors.walls);
+    }
+  });
+  
+  // Update lights
+  if (lights.ambient) {
+    lights.ambient.color.setHex(roomColors.ambientLight);
+  }
+  if (lights.directional) {
+    lights.directional.color.setHex(roomColors.directionalLight);
+  }
+  if (lights.fill) {
+    lights.fill.color.setHex(roomColors.fillLight);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Snap to floor
 // ─────────────────────────────────────────────────────────────────────
 function snapToFloor(obj) {
   if (!obj) return;
-  
-  // Compute bounding box
   const box = new THREE.Box3().setFromObject(obj);
   const minY = box.min.y;
-  
-  // Move object so its lowest point sits on floor (y=0)
   obj.position.y -= minY;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Model list population (desktop + mobile)
+// Model list population
 // ─────────────────────────────────────────────────────────────────────
 function buildModelItems(filter, onClick) {
   const frag = document.createDocumentFragment();
@@ -535,7 +627,6 @@ function populateModelList(filter = '') {
   const list = document.getElementById('model-list');
   list.innerHTML = '';
   list.appendChild(buildModelItems(filter, addModelToScene));
-  // Also refresh mobile sheet list
   window.populateModelListMobile(filter);
 }
 
@@ -553,7 +644,7 @@ window.populateModelListMobile = function(filter = '') {
 };
 
 // ─────────────────────────────────────────────────────────────────────
-// Add model to scene (FIXED positioning)
+// Add model to scene
 // ─────────────────────────────────────────────────────────────────────
 function addModelToScene(modelDef) {
   if (!GLTFLoader) {
@@ -562,9 +653,6 @@ function addModelToScene(modelDef) {
   }
   showStatus(`Loading ${modelDef.name}…`);
   const loader = new GLTFLoader();
-  
-  // Construct the full URL to the model file
-  // Since models are in the root/models folder relative to the HTML
   const modelUrl = `models/${modelDef.file}`;
   
   loader.load(
@@ -574,7 +662,6 @@ function addModelToScene(modelDef) {
       obj.name = modelDef.name;
       obj.userData.modelDef = modelDef;
 
-      // Enable shadows
       obj.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -582,47 +669,27 @@ function addModelToScene(modelDef) {
         }
       });
 
-      // Center the model's pivot point
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
       
-      // Reposition so the model is centered at origin
       obj.position.sub(center);
-      
-      // Add to scene at room center
       scene.add(obj);
-      
-      // Position at room center (0,0,0) and snap to floor
-      obj.position.x = 0;
-      obj.position.z = 0;
-      
-      // Snap to floor to ensure it sits on ground
+      obj.position.set(0, 0, 0);
       snapToFloor(obj);
-
-      // Log for debugging
-      console.log(`Added ${modelDef.name} at position:`, obj.position, 'size:', size);
 
       placedObjects.push(obj);
       selectObject(obj);
-      showStatus(`Added ${modelDef.name} • Use gizmos to position`);
+      showStatus(`Added ${modelDef.name}`);
     },
-    // Progress callback
-    (xhr) => {
-      // Optional: show loading progress
-      // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    },
-    // Error callback
+    undefined,
     (err) => {
-      console.error('Error loading model:', err, 'URL:', modelUrl);
-      // Add a placeholder box so the app remains useful even without real models
+      console.error('Error loading model:', err);
       addPlaceholderBox(modelDef);
     }
   );
 }
 
 function addPlaceholderBox(modelDef) {
-  // Sane default sizes for different categories
   const sizes = { 
     Seating: [0.8, 0.9, 0.9], 
     Tables: [1.2, 0.75, 0.7], 
@@ -633,7 +700,6 @@ function addPlaceholderBox(modelDef) {
   };
   
   const s = sizes[modelDef.category] || sizes.Other;
-  
   const geo = new THREE.BoxGeometry(s[0], s[1], s[2]);
   const hue = (modelDef.name.charCodeAt(0) * 37) % 360;
   const mat = new THREE.MeshStandardMaterial({
@@ -649,8 +715,6 @@ function addPlaceholderBox(modelDef) {
   mesh.userData.modelDef = modelDef;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  
-  // Position at room center
   mesh.position.set(0, 0, 0);
   
   scene.add(mesh);
@@ -658,7 +722,7 @@ function addPlaceholderBox(modelDef) {
   
   placedObjects.push(mesh);
   selectObject(mesh);
-  showStatus(`⚠ Model file not found — showing placeholder box for ${modelDef.name}`);
+  showStatus(`⚠ Placeholder for ${modelDef.name}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -666,22 +730,36 @@ function addPlaceholderBox(modelDef) {
 // ─────────────────────────────────────────────────────────────────────
 function selectObject(obj) {
   selectedObject = obj;
-  if (transformControls) {
+  
+  // On mobile, don't use transform controls
+  if (!isMobile && transformControls) {
     transformControls.attach(obj);
   }
+  
   updatePropsPanel();
-  document.getElementById('selected-indicator').textContent = obj.name;
-  document.getElementById('selected-indicator').classList.add('visible');
-  showStatus(`Selected: ${obj.name} • W/E/R to switch gizmo mode`);
+  
+  const indicator = document.getElementById('selected-indicator');
+  if (indicator) {
+    indicator.textContent = obj.name;
+    indicator.classList.add('visible');
+  }
+  
+  showStatus(`Selected: ${obj.name}`);
 }
 
 function deselectObject() {
   selectedObject = null;
-  if (transformControls) transformControls.detach();
-  document.getElementById('obj-props').style.display = 'none';
-  document.getElementById('no-select-msg').style.display = 'block';
-  document.getElementById('selected-indicator').classList.remove('visible');
-  showStatus('Tap an object to select • Tap a model in the panel to add');
+  if (!isMobile && transformControls) transformControls.detach();
+  
+  const propsPanel = document.getElementById('obj-props');
+  const noSelectMsg = document.getElementById('no-select-msg');
+  const indicator = document.getElementById('selected-indicator');
+  
+  if (propsPanel) propsPanel.style.display = 'none';
+  if (noSelectMsg) noSelectMsg.style.display = 'block';
+  if (indicator) indicator.classList.remove('visible');
+  
+  showStatus('Tap an object to select');
   if (window.onDeselected) window.onDeselected();
 }
 
@@ -706,7 +784,6 @@ function onCanvasClick(e) {
 
   const hits = raycaster.intersectObjects(placedObjects, true);
   if (hits.length > 0) {
-    // Walk up to root placed object
     let obj = hits[0].object;
     while (obj.parent && !placedObjects.includes(obj)) {
       obj = obj.parent;
@@ -715,7 +792,6 @@ function onCanvasClick(e) {
       selectObject(obj);
     }
   } else {
-    // Hit floor → deselect
     const floorHits = raycaster.intersectObject(floor, false);
     if (floorHits.length > 0) {
       deselectObject();
@@ -724,7 +800,47 @@ function onCanvasClick(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Properties panel with uniform scaling
+// Mobile object manipulation buttons
+// ─────────────────────────────────────────────────────────────────────
+function moveObject(direction, amount = 0.1) {
+  if (!selectedObject) return;
+  
+  switch(direction) {
+    case 'left': selectedObject.position.x -= amount; break;
+    case 'right': selectedObject.position.x += amount; break;
+    case 'forward': selectedObject.position.z -= amount; break;
+    case 'backward': selectedObject.position.z += amount; break;
+    case 'up': selectedObject.position.y += amount; break;
+    case 'down': selectedObject.position.y -= amount; break;
+  }
+  
+  snapToFloor(selectedObject);
+  updatePropsPanel();
+}
+
+function rotateObject(amount = 0.1) {
+  if (!selectedObject) return;
+  selectedObject.rotation.y += amount;
+  updatePropsPanel();
+}
+
+function scaleObject(amount = 0.05) {
+  if (!selectedObject) return;
+  const newScale = selectedObject.scale.x + amount;
+  if (newScale > 0.01) {
+    selectedObject.scale.set(newScale, newScale, newScale);
+    snapToFloor(selectedObject);
+    updatePropsPanel();
+  }
+}
+
+// Expose for mobile UI
+window.moveObject = moveObject;
+window.rotateObject = rotateObject;
+window.scaleObject = scaleObject;
+
+// ─────────────────────────────────────────────────────────────────────
+// Properties panel
 // ─────────────────────────────────────────────────────────────────────
 function updatePropsPanel() {
   if (!selectedObject) return;
@@ -735,98 +851,179 @@ function updatePropsPanel() {
   const ry = THREE.MathUtils.radToDeg(o.rotation.y).toFixed(1);
   const sx = s.x.toFixed(2), sy = s.y.toFixed(2), sz = s.z.toFixed(2);
 
-  document.getElementById('obj-props').style.display = 'block';
-  document.getElementById('no-select-msg').style.display = 'none';
-  document.getElementById('obj-name-title').textContent = o.name;
-  document.getElementById('prop-px').value = px;
-  document.getElementById('prop-pz').value = pz;
-  document.getElementById('prop-ry').value = ry;
-  document.getElementById('prop-sx').value = sx;
-  document.getElementById('prop-sy').value = sy;
-  document.getElementById('prop-sz').value = sz;
+  const propsPanel = document.getElementById('obj-props');
+  const noSelectMsg = document.getElementById('no-select-msg');
   
-  // Update uniform scale field if it exists
-  const uniformScaleField = document.getElementById('prop-uniform');
-  if (uniformScaleField) {
-    // Use average of scales for uniform field
+  if (propsPanel) propsPanel.style.display = 'block';
+  if (noSelectMsg) noSelectMsg.style.display = 'none';
+  
+  const nameTitle = document.getElementById('obj-name-title');
+  if (nameTitle) nameTitle.textContent = o.name;
+  
+  // Update inputs
+  setInputValue('prop-px', px);
+  setInputValue('prop-pz', pz);
+  setInputValue('prop-ry', ry);
+  setInputValue('prop-sx', sx);
+  setInputValue('prop-sy', sy);
+  setInputValue('prop-sz', sz);
+  
+  const uniformField = document.getElementById('prop-uniform');
+  if (uniformField) {
     const avgScale = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
-    uniformScaleField.value = avgScale;
+    uniformField.value = avgScale;
   }
 
-  // Sync mobile sheet
-  if (window.onPropsUpdated) window.onPropsUpdated(o.name, px, pz, ry, sx, sy, sz);
+  if (window.onPropsUpdated) {
+    window.onPropsUpdated(o.name, px, pz, ry, sx, sy, sz);
+  }
 }
 
-// Apply uniform scaling
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
 function applyUniformScale(value) {
   if (!selectedObject) return;
   const val = parseFloat(value);
   if (isNaN(val) || val <= 0) return;
-  
   selectedObject.scale.set(val, val, val);
   snapToFloor(selectedObject);
   updatePropsPanel();
 }
 
-// Apply prop inputs to object
 function bindPropInput(id, apply) {
-  document.getElementById(id).addEventListener('change', function () {
-    if (!selectedObject) return;
-    apply(parseFloat(this.value));
-    snapToFloor(selectedObject);
-    updatePropsPanel();
-  });
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', function () {
+      if (!selectedObject) return;
+      apply(parseFloat(this.value));
+      snapToFloor(selectedObject);
+      updatePropsPanel();
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// UI bindings (updated with uniform scale)
+// UI bindings
 // ─────────────────────────────────────────────────────────────────────
 function bindUI() {
   // Search
-  document.getElementById('model-search').addEventListener('input', e => {
-    populateModelList(e.target.value);
-  });
-
-  // Gizmo mode buttons
-  document.querySelectorAll('.gizmo-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setGizmoMode(btn.dataset.mode);
+  const searchInput = document.getElementById('model-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      populateModelList(e.target.value);
     });
-  });
+  }
 
-  // Topbar
-  document.getElementById('btn-reset-cam').addEventListener('click', () => {
-    orbit.theta = 0.7; orbit.phi = 0.9;
-    orbit.radius = Math.max(roomW, roomL) * 1.4;
-    orbit.target.set(0, 0, 0);
-    updateCameraFromOrbit();
-  });
-  document.getElementById('btn-top-view').addEventListener('click', () => {
-    orbit.phi = 0.06;
-    updateCameraFromOrbit();
-  });
-  document.getElementById('btn-toggle-grid').addEventListener('click', function () {
-    gridVisible = !gridVisible;
-    if (gridHelper) gridHelper.visible = gridVisible;
-    this.classList.toggle('active', gridVisible);
-  });
-  document.getElementById('btn-toggle-walls').addEventListener('click', function () {
-    wallsVisible = !wallsVisible;
-    walls.forEach(w => { w.visible = wallsVisible; });
-    this.classList.toggle('active', wallsVisible);
-  });
-  document.getElementById('btn-deselect').addEventListener('click', deselectObject);
-  document.getElementById('btn-delete').addEventListener('click', deleteSelected);
-  document.getElementById('btn-delete-prop').addEventListener('click', deleteSelected);
+  // Gizmo mode buttons (desktop only)
+  if (!isMobile) {
+    document.querySelectorAll('.gizmo-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setGizmoMode(btn.dataset.mode);
+      });
+    });
+  }
+
+  // Topbar buttons
+  const resetCamBtn = document.getElementById('btn-reset-cam');
+  if (resetCamBtn) {
+    resetCamBtn.addEventListener('click', () => {
+      orbit.theta = 0.7; orbit.phi = 0.9;
+      orbit.radius = Math.max(roomW, roomL) * 1.4;
+      orbit.target.set(0, 0, 0);
+      updateCameraFromOrbit();
+    });
+  }
+
+  const topViewBtn = document.getElementById('btn-top-view');
+  if (topViewBtn) {
+    topViewBtn.addEventListener('click', () => {
+      orbit.phi = 0.06;
+      updateCameraFromOrbit();
+    });
+  }
+
+  const toggleGridBtn = document.getElementById('btn-toggle-grid');
+  if (toggleGridBtn) {
+    toggleGridBtn.addEventListener('click', function () {
+      gridVisible = !gridVisible;
+      if (gridHelper) gridHelper.visible = gridVisible;
+      this.classList.toggle('active', gridVisible);
+    });
+  }
+
+  const toggleWallsBtn = document.getElementById('btn-toggle-walls');
+  if (toggleWallsBtn) {
+    toggleWallsBtn.addEventListener('click', function () {
+      wallsVisible = !wallsVisible;
+      walls.forEach(w => { w.visible = wallsVisible; });
+      this.classList.toggle('active', wallsVisible);
+    });
+  }
+
+  const deselectBtn = document.getElementById('btn-deselect');
+  if (deselectBtn) deselectBtn.addEventListener('click', deselectObject);
+
+  const deleteBtn = document.getElementById('btn-delete');
+  if (deleteBtn) deleteBtn.addEventListener('click', deleteSelected);
+
+  const deletePropBtn = document.getElementById('btn-delete-prop');
+  if (deletePropBtn) deletePropBtn.addEventListener('click', deleteSelected);
 
   // Room apply
-  document.getElementById('btn-apply-room').addEventListener('click', () => {
-    roomW = parseFloat(document.getElementById('room-width').value) || 10;
-    roomL = parseFloat(document.getElementById('room-length').value) || 8;
-    roomH = parseFloat(document.getElementById('room-height').value) || 3;
-    buildRoom(roomW, roomL, roomH);
-    showStatus(`Room updated: ${roomW}m × ${roomL}m × ${roomH}m`);
-  });
+  const applyRoomBtn = document.getElementById('btn-apply-room');
+  if (applyRoomBtn) {
+    applyRoomBtn.addEventListener('click', () => {
+      roomW = parseFloat(document.getElementById('room-width').value) || 10;
+      roomL = parseFloat(document.getElementById('room-length').value) || 8;
+      roomH = parseFloat(document.getElementById('room-height').value) || 3;
+      buildRoom(roomW, roomL, roomH);
+      showStatus(`Room updated: ${roomW}m × ${roomL}m × ${roomH}m`);
+    });
+  }
+
+  // Color pickers
+  const floorColor = document.getElementById('color-floor');
+  if (floorColor) {
+    floorColor.addEventListener('input', (e) => {
+      roomColors.floor = parseInt(e.target.value.substring(1), 16);
+      updateColors();
+    });
+  }
+
+  const wallsColor = document.getElementById('color-walls');
+  if (wallsColor) {
+    wallsColor.addEventListener('input', (e) => {
+      roomColors.walls = parseInt(e.target.value.substring(1), 16);
+      updateColors();
+    });
+  }
+
+  const ambientColor = document.getElementById('color-ambient');
+  if (ambientColor) {
+    ambientColor.addEventListener('input', (e) => {
+      roomColors.ambientLight = parseInt(e.target.value.substring(1), 16);
+      updateColors();
+    });
+  }
+
+  const dirColor = document.getElementById('color-dir');
+  if (dirColor) {
+    dirColor.addEventListener('input', (e) => {
+      roomColors.directionalLight = parseInt(e.target.value.substring(1), 16);
+      updateColors();
+    });
+  }
+
+  const fillColor = document.getElementById('color-fill');
+  if (fillColor) {
+    fillColor.addEventListener('input', (e) => {
+      roomColors.fillLight = parseInt(e.target.value.substring(1), 16);
+      updateColors();
+    });
+  }
 
   // Property inputs
   bindPropInput('prop-px', v => { selectedObject.position.x = v; });
@@ -836,7 +1033,6 @@ function bindUI() {
   bindPropInput('prop-sy', v => { selectedObject.scale.y = Math.max(0.01, v); });
   bindPropInput('prop-sz', v => { selectedObject.scale.z = Math.max(0.01, v); });
   
-  // Uniform scale input (add this to your HTML if not present)
   const uniformField = document.getElementById('prop-uniform');
   if (uniformField) {
     uniformField.addEventListener('change', function() {
@@ -844,21 +1040,25 @@ function bindUI() {
     });
   }
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (desktop only)
   window.addEventListener('keydown', onKeyDown);
 }
 
 function setGizmoMode(mode) {
-  window.setGizmoMode = setGizmoMode; // expose globally
+  window.setGizmoMode = setGizmoMode;
   gizmoMode = mode;
-  if (transformControls) transformControls.setMode(mode);
+  if (!isMobile && transformControls) {
+    transformControls.setMode(mode);
+  }
   document.querySelectorAll('.gizmo-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
 }
 
 function onKeyDown(e) {
+  if (isMobile) return; // No keyboard shortcuts on mobile
   if (e.target.tagName === 'INPUT') return;
+  
   switch (e.key) {
     case 'w': case 'W': setGizmoMode('translate'); break;
     case 'e': case 'E': setGizmoMode('rotate'); break;
@@ -873,11 +1073,12 @@ function onKeyDown(e) {
 // ─────────────────────────────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
-  if (transformControls) transformControls.updateMatrixWorld();
+  if (!isMobile && transformControls) {
+    transformControls.updateMatrixWorld();
+  }
   renderer.render(scene, camera);
 
-  // Sync props if gizmo is active
-  if (selectedObject && transformControls && transformControls.dragging) {
+  if (selectedObject && !isMobile && transformControls && transformControls.dragging) {
     snapToFloor(selectedObject);
     updatePropsPanel();
   }
@@ -892,19 +1093,23 @@ function onResize() {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
-  if (transformControls) transformControls.update();
+  if (!isMobile && transformControls) transformControls.update();
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 function showStatus(msg) {
-  document.getElementById('statusbar').textContent = msg;
+  const statusbar = document.getElementById('statusbar');
+  if (statusbar) statusbar.textContent = msg;
 }
+
 function hideLoading() {
   const el = document.getElementById('loading-overlay');
-  el.classList.add('hidden');
-  setTimeout(() => el.remove(), 400);
+  if (el) {
+    el.classList.add('hidden');
+    setTimeout(() => el.remove(), 400);
+  }
 }
 
 // Initial camera
