@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <title>Room Arranger 3D</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
@@ -12,198 +11,224 @@
 :root{
   --bg:#0f0f11;--surface:#18181c;--surface2:#222228;--border:#2e2e38;
   --accent:#5b8cff;--accent2:#ff6b6b;--text:#e8e8f0;--text2:#8888a0;
-  --panel-w:260px;--props-w:280px;--topbar-h:48px;
-  --bot-h:120px;--safe-bot:env(safe-area-inset-bottom,0px);
+  --panel-w:264px;--props-w:248px;--topbar-h:48px;
+  --bot-h:56px;--safe-bot:env(safe-area-inset-bottom,0px);
 }
 html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--text);
   font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;touch-action:none}
 
-/* ── Topbar ── */
+/* ── TOPBAR ── */
 #topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);
   border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:6px;z-index:200}
-.logo{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.1em;color:var(--accent);
-  font-weight:500;flex-shrink:0;margin-right:2px}
-.tb-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
-.tb-btn{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:transparent;
-  color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;
-  display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;user-select:none;-webkit-user-select:none}
+.logo{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.1em;color:var(--accent);font-weight:500;flex-shrink:0}
+.tb-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.tb-btn{height:30px;padding:0 9px;border:1px solid var(--border);border-radius:6px;background:transparent;
+  color:var(--text2);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;user-select:none}
 .tb-btn:active,.tb-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(91,140,255,.1)}
 .tb-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(91,140,255,.12)}
+.tb-btn.del{color:var(--accent2);border-color:rgba(255,107,107,.25)}
+.tb-btn.del:hover,.tb-btn.del:active{background:rgba(255,107,107,.12);border-color:var(--accent2)}
 .tb-spacer{flex:1}
 .tb-lbl{display:inline}
 
-/* ── Shell ── */
+/* ── SHELL ── */
 #shell{position:fixed;top:var(--topbar-h);left:0;right:0;bottom:0;display:flex;overflow:hidden}
 
-/* ── Left panel ── */
+/* ── LEFT PANEL ── */
 #panel-left{width:var(--panel-w);background:var(--surface);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0;z-index:100}
-.panel-hdr{padding:11px 14px 9px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  display:flex;flex-direction:column;flex-shrink:0}
+.panel-hdr{padding:10px 14px 8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--text2);font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);font-weight:500}
-#model-search{margin:10px 12px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);
+#model-search{margin:9px 11px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);
   border-radius:6px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;
   transition:border-color .15s;flex-shrink:0}
 #model-search:focus{border-color:var(--accent)}
 #model-search::placeholder{color:var(--text2)}
-#model-list{flex:1;overflow-y:auto;padding:4px 8px 12px;-webkit-overflow-scrolling:touch;
-  scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#model-list{flex:1;overflow-y:auto;padding:2px 8px 12px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 .cat-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);
   font-family:'DM Mono',monospace;padding:10px 10px 4px;font-weight:500}
-.model-item{padding:10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;
-  margin-bottom:2px;border:1px solid transparent;transition:background .12s;user-select:none;-webkit-user-select:none}
+.model-item{padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:9px;
+  margin-bottom:2px;border:1px solid transparent;transition:background .12s;user-select:none}
 .model-item:active,.model-item:hover{background:var(--surface2);border-color:var(--border)}
-.m-icon{width:38px;height:38px;background:var(--surface2);border-radius:8px;display:flex;
-  align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.m-icon{width:36px;height:36px;background:var(--surface2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
 .m-info{min-width:0;flex:1}
-.m-name{font-size:13px;font-weight:500;color:var(--text)}
-.m-meta{font-size:11px;color:var(--text2);margin-top:1px;font-family:'DM Mono',monospace;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m-add{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:rgba(91,140,255,.12);
-  border:1px solid rgba(91,140,255,.3);color:var(--accent);display:flex;align-items:center;
-  justify-content:center;font-size:18px;line-height:1}
+.m-name{font-size:12px;font-weight:500;color:var(--text)}
+.m-meta{font-size:10px;color:var(--text2);margin-top:1px;font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-add{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:rgba(91,140,255,.12);
+  border:1px solid rgba(91,140,255,.3);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
 
-/* ── Viewport ── */
+/* ── VIEWPORT ── */
 #viewport{flex:1;position:relative;overflow:hidden;background:#0a0a0e}
 #three-canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;touch-action:none}
 
-/* Gizmo toolbar (desktop only) */
+/* Gizmo toolbar */
 #gizmo-toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:3px;
   background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;z-index:10}
-.gizmo-btn{height:36px;padding:0 12px;border-radius:6px;border:none;background:transparent;color:var(--text2);
-  font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .12s;display:flex;
-  align-items:center;gap:5px;user-select:none;-webkit-user-select:none}
+.gizmo-btn{height:34px;padding:0 11px;border-radius:6px;border:none;background:transparent;color:var(--text2);
+  font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:5px}
 .gizmo-btn:active,.gizmo-btn:hover{color:var(--text);background:var(--surface2)}
 .gizmo-btn.active{color:var(--accent);background:rgba(91,140,255,.15)}
-.glbl{} /* hidden on mobile via media query */
 
-#selected-indicator{position:absolute;top:10px;right:10px;background:var(--surface);
-  border:1px solid var(--accent);border-radius:6px;padding:5px 10px;font-size:11px;
-  font-family:'DM Mono',monospace;color:var(--accent);display:none;max-width:160px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:10}
-#selected-indicator.visible{display:block}
+/* Selection badge */
+#sel-badge{position:absolute;top:10px;right:10px;background:rgba(24,24,28,.95);
+  border:1.5px solid var(--accent);border-radius:7px;padding:5px 12px 5px 10px;
+  font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);display:none;
+  max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:10;
+  box-shadow:0 0 16px rgba(91,140,255,.25)}
+#sel-badge::before{content:'◉ ';font-size:10px}
+#sel-badge.visible{display:block}
 
+/* Status */
 #statusbar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
-  background:rgba(24,24,28,.92);border:1px solid var(--border);border-radius:6px;
-  padding:5px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);
+  background:rgba(24,24,28,.9);border:1px solid var(--border);border-radius:6px;
+  padding:4px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);
   pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;z-index:10}
 
-/* ── Right panel ── */
+/* ── RIGHT PANEL ── */
 #panel-right{width:var(--props-w);background:var(--surface);border-left:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:thin;scrollbar-color:var(--border) transparent;z-index:100}
-.prop-sec{border-bottom:1px solid var(--border);padding:12px 14px}
-.prop-ttl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);
-  font-family:'DM Mono',monospace;font-weight:500;margin-bottom:9px}
-.prop-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.prop-lbl{font-size:11px;color:var(--text2);width:18px;font-family:'DM Mono',monospace;flex-shrink:0}
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.prop-sec{border-bottom:1px solid var(--border);padding:11px 13px}
+.prop-ttl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);
+  font-family:'DM Mono',monospace;font-weight:500;margin-bottom:8px}
+.prop-row{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.prop-lbl{font-size:10px;color:var(--text2);width:16px;font-family:'DM Mono',monospace;flex-shrink:0}
 .prop-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:5px;
-  padding:6px 8px;color:var(--text);font-size:13px;font-family:'DM Mono',monospace;outline:none;
-  transition:border-color .15s}
+  padding:5px 7px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none;transition:border-color .15s}
 .prop-inp:focus{border-color:var(--accent)}
-.room-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.room-lbl{font-size:11px;color:var(--text2);width:52px;font-family:'DM Mono',monospace;flex-shrink:0}
-.unit{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;flex-shrink:0}
-.color-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.color-lbl{font-size:11px;color:var(--text2);width:70px;font-family:'DM Mono',monospace;flex-shrink:0}
-.color-picker{width:40px;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer}
-.apply-btn{width:100%;padding:9px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.3);
-  border-radius:6px;color:var(--accent);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;
-  font-weight:500;transition:background .15s;margin-top:4px}
+.prop-inp-full{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;
+  padding:6px 8px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none;
+  transition:border-color .15s;margin-bottom:6px}
+.prop-inp-full:focus{border-color:var(--accent)}
+.room-row{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.room-lbl{font-size:10px;color:var(--text2);width:48px;font-family:'DM Mono',monospace;flex-shrink:0}
+.unit{font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;flex-shrink:0}
+.apply-btn{width:100%;padding:8px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.3);
+  border-radius:6px;color:var(--accent);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-weight:500;transition:background .15s;margin-top:3px}
 .apply-btn:active,.apply-btn:hover{background:rgba(91,140,255,.22)}
-.danger-btn{width:100%;padding:9px;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.22);
-  border-radius:6px;color:var(--accent2);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;
-  transition:background .15s;margin-top:4px}
+.danger-btn{width:100%;padding:8px;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.22);
+  border-radius:6px;color:var(--accent2);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:background .15s;margin-top:3px}
 .danger-btn:active,.danger-btn:hover{background:rgba(255,107,107,.18)}
-.no-sel-msg{padding:18px 14px;text-align:center;color:var(--text2);font-size:12px;line-height:1.65}
-.sk-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;
-  font-family:'DM Mono',monospace;color:var(--text2);line-height:1.9}
+.no-sel-msg{padding:16px 13px;text-align:center;color:var(--text2);font-size:11px;line-height:1.6}
+.color-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.color-lbl{font-size:10px;color:var(--text2);flex:1;font-family:'DM Mono',monospace}
+.color-swatch{width:30px;height:22px;border-radius:4px;border:1px solid var(--border);cursor:pointer;padding:0;overflow:hidden;position:relative}
+.color-swatch input[type=color]{position:absolute;inset:-4px;width:calc(100%+8px);height:calc(100%+8px);opacity:0;cursor:pointer}
+.color-preview{position:absolute;inset:0;border-radius:3px}
+.sk-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.9}
 .sk-grid .k{color:var(--text)}
+.prop-divider{height:1px;background:var(--border);margin:4px 0 8px}
 
-/* ── Loading ── */
+/* ── LOADING ── */
 #loading-overlay{position:fixed;inset:0;background:rgba(10,10,14,.92);display:flex;flex-direction:column;
   align-items:center;justify-content:center;z-index:9999;gap:14px;transition:opacity .3s}
 #loading-overlay.hidden{opacity:0;pointer-events:none}
-.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);
+.spinner{width:30px;height:30px;border:2px solid var(--border);border-top-color:var(--accent);
   border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
 
 /* ═══════════════════════════════════
-   MOBILE-ONLY UI
+   MOBILE-ONLY
 ═══════════════════════════════════ */
-#mobile-controls{display:none;position:fixed;bottom:0;left:0;right:0;
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;
   height:calc(var(--bot-h) + var(--safe-bot));padding-bottom:var(--safe-bot);
   background:var(--surface);border-top:1px solid var(--border);z-index:300;
-  flex-direction:column;padding:6px 8px 0;gap:6px}
-#mobile-controls .control-row{display:flex;align-items:center;justify-content:space-around;gap:4px}
-#mobile-controls .control-btn{flex:1;height:44px;border:none;background:var(--surface2);color:var(--text);
-  display:flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;
-  font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--border);
-  transition:all .12s;user-select:none;-webkit-user-select:none}
-#mobile-controls .control-btn:active{background:var(--accent);color:#fff;border-color:var(--accent)}
-#mobile-controls .control-btn.small{flex:0.7}
-#mobile-controls .control-label{font-size:10px;color:var(--text2);text-align:center;margin-top:2px}
+  align-items:stretch}
+.nav-tab{flex:1;border:none;background:transparent;color:var(--text2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:all .12s;
+  user-select:none;font-size:9px;font-family:'DM Sans',sans-serif;padding-bottom:2px}
+.nav-tab:active,.nav-tab.active{color:var(--accent);background:rgba(91,140,255,.08)}
+.nav-tab svg{width:20px;height:20px}
 
-#bottom-nav{display:none;position:fixed;bottom:calc(var(--bot-h) + var(--safe-bot));left:0;right:0;
-  height:48px;background:var(--surface);border-top:1px solid var(--border);z-index:299;
-  align-items:center;justify-content:space-around;padding:0 4px}
-.nav-btn{flex:1;max-width:64px;height:40px;border:none;background:transparent;color:var(--text2);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  border-radius:6px;cursor:pointer;transition:all .12s;user-select:none;-webkit-user-select:none;
-  font-size:9px;font-family:'DM Sans',sans-serif}
-.nav-btn:active,.nav-btn.active{color:var(--accent);background:rgba(91,140,255,.1)}
-.nav-btn.del-btn:active{color:var(--accent2);background:rgba(255,107,107,.1)}
-
-#fab-add{display:none;position:fixed;bottom:calc(var(--bot-h) + var(--safe-bot) + 60px);right:14px;
-  width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;color:#fff;
-  font-size:26px;cursor:pointer;z-index:250;box-shadow:0 4px 20px rgba(91,140,255,.45);
-  align-items:center;justify-content:center;transition:transform .15s;user-select:none}
-#fab-add:active{transform:scale(.92)}
+/* FAB */
+#fab-add{display:none;position:fixed;bottom:calc(var(--bot-h) + var(--safe-bot) + 10px);right:13px;
+  width:48px;height:48px;border-radius:50%;background:var(--accent);border:none;color:#fff;
+  font-size:24px;cursor:pointer;z-index:250;box-shadow:0 4px 18px rgba(91,140,255,.45);
+  align-items:center;justify-content:center;transition:transform .14s;user-select:none}
+#fab-add:active{transform:scale(.9)}
 
 /* Sheet overlay */
-.sh-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;backdrop-filter:blur(2px)}
-.sh-overlay.open{display:block}
-/* Sheet */
-.bsheet{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-radius:16px 16px 0 0;
+.sh-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;backdrop-filter:blur(3px)}
+.sh-ov.open{display:block}
+
+/* Bottom sheet */
+.bsheet{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-radius:14px 14px 0 0;
   border-top:1px solid var(--border);z-index:400;display:flex;flex-direction:column;
-  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:82dvh}
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1)}
 .bsheet.open{transform:translateY(0)}
-.sh-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;flex-shrink:0}
-.sh-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--text2);text-align:center;padding:7px 0 3px;flex-shrink:0}
-#sh-model-search{margin:8px 12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
-  border-radius:8px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;flex-shrink:0}
+.sh-handle{width:34px;height:4px;background:var(--border);border-radius:2px;margin:9px auto 0;flex-shrink:0}
+.sh-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text2);text-align:center;padding:6px 0 2px;flex-shrink:0}
+
+/* Model sheet */
+#sh-models{max-height:80dvh}
+#sh-model-search{margin:8px 11px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:7px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;flex-shrink:0}
 #sh-model-search:focus{border-color:var(--accent)}
 #sh-model-list{flex:1;overflow-y:auto;padding:4px 8px calc(var(--safe-bot) + 14px);-webkit-overflow-scrolling:touch}
-/* props sheet */
-#sh-props-body{flex:1;overflow-y:auto;padding:10px 14px calc(var(--safe-bot) + 14px);
-  -webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:14px}
-.sh-sec-ttl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);
+
+/* Props sheet */
+#sh-props{max-height:88dvh}
+#sh-props-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:10px 14px calc(var(--safe-bot) + 14px)}
+
+/* Controls sheet — mobile move/rotate/scale */
+#sh-controls{max-height:75dvh}
+#sh-controls-body{flex:1;overflow-y:auto;padding:10px 14px calc(var(--safe-bot)+14px);display:flex;flex-direction:column;gap:14px}
+
+/* Mobile controls grid */
+.ctrl-section-ttl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);
+  font-family:'DM Mono',monospace;font-weight:500;margin-bottom:8px}
+.ctrl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ctrl-btn{height:52px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);
+  color:var(--text);font-size:20px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;user-select:none;transition:all .12s;
+  font-family:'DM Sans',sans-serif}
+.ctrl-btn .ctrl-lbl{font-size:9px;color:var(--text2);font-family:'DM Mono',monospace;line-height:1}
+.ctrl-btn:active{background:rgba(91,140,255,.15);border-color:var(--accent);color:var(--accent)}
+.ctrl-btn.danger:active{background:rgba(255,107,107,.12);border-color:var(--accent2);color:var(--accent2)}
+.ctrl-empty{height:52px}
+
+/* Mobile orbit mode toggle */
+#btn-orbit-mode{margin:0 14px 10px;height:40px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-size:13px;font-family:'DM Sans',sans-serif;
+  cursor:pointer;transition:all .14s;display:flex;align-items:center;justify-content:center;gap:6px}
+#btn-orbit-mode.active{color:var(--accent);border-color:var(--accent);background:rgba(91,140,255,.12)}
+
+/* Sheet shared inputs */
+.sh-ttl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);
   font-family:'DM Mono',monospace;font-weight:500;margin-bottom:8px}
 .sh-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.sh-lbl{font-size:12px;color:var(--text2);width:20px;font-family:'DM Mono',monospace;flex-shrink:0}
+.sh-lbl{font-size:12px;color:var(--text2);width:22px;font-family:'DM Mono',monospace;flex-shrink:0}
 .sh-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
   padding:10px 10px;color:var(--text);font-size:16px;font-family:'DM Mono',monospace;outline:none}
 .sh-inp:focus{border-color:var(--accent)}
+.sh-divider{height:1px;background:var(--border);margin:8px 0 12px}
+.sh-color-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.sh-color-lbl{font-size:12px;color:var(--text2);flex:1;font-family:'DM Mono',monospace}
+.sh-color-swatch{width:36px;height:28px;border-radius:6px;border:1px solid var(--border);
+  cursor:pointer;padding:0;overflow:hidden;position:relative}
+.sh-color-swatch input[type=color]{position:absolute;inset:-4px;width:calc(100%+8px);height:calc(100%+8px);opacity:0;cursor:pointer}
+.sh-color-preview{position:absolute;inset:0;border-radius:5px}
 
-/* ── Responsive ── */
+/* ── RESPONSIVE ── */
 @media(max-width:768px){
-  :root{--topbar-h:44px;--bot-h:160px}
+  :root{--topbar-h:44px}
   #panel-left,#panel-right{display:none}
-  #gizmo-toolbar{display:none}
-  #mobile-controls{display:flex}
   #bottom-nav{display:flex}
   #fab-add{display:flex}
-  #shell{bottom:calc(var(--bot-h) + var(--safe-bot) + 48px)}
-  .gizmo-btn{height:40px;padding:0 9px;font-size:12px}
-  .glbl{display:none}
+  #shell{bottom:calc(var(--bot-h) + var(--safe-bot))}
+  #gizmo-toolbar{display:none}
   .tb-lbl{display:none}
-  .tb-btn{padding:0 8px;min-width:34px;justify-content:center}
+  .tb-btn{padding:0 7px;min-width:32px;justify-content:center}
   .tb-sep{display:none}
   #topbar{gap:3px}
 }
 @media(min-width:769px){
-  .sh-overlay,.bsheet,#bottom-nav,#fab-add,#mobile-controls{display:none!important}
+  .sh-ov,.bsheet,#bottom-nav,#fab-add,#btn-orbit-mode{display:none!important}
 }
 </style>
 </head>
@@ -211,41 +236,43 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div class="loading-text">Initializing Room Arranger…</div>
+  <div class="loading-text" id="loading-text">Initializing…</div>
 </div>
 
-<!-- Topbar -->
+<!-- ── TOPBAR ── -->
 <div id="topbar">
   <span class="logo">⬛ ROOM3D</span>
   <div class="tb-sep"></div>
   <button class="tb-btn" id="btn-reset-cam">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     <span class="tb-lbl">Reset</span>
   </button>
   <button class="tb-btn" id="btn-top-view">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
     <span class="tb-lbl">Top</span>
   </button>
   <button class="tb-btn active" id="btn-toggle-grid">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
     <span class="tb-lbl">Grid</span>
   </button>
   <button class="tb-btn active" id="btn-toggle-walls">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
     <span class="tb-lbl">Walls</span>
   </button>
   <div class="tb-spacer"></div>
   <button class="tb-btn" id="btn-deselect">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
     <span class="tb-lbl">Deselect</span>
   </button>
-  <button class="tb-btn" id="btn-delete" style="color:var(--accent2);border-color:rgba(255,107,107,.25)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+  <button class="tb-btn del" id="btn-delete">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     <span class="tb-lbl">Delete</span>
   </button>
 </div>
 
+<!-- ── SHELL ── -->
 <div id="shell">
+
   <!-- Desktop left panel -->
   <div id="panel-left">
     <div class="panel-hdr">Model Library</div>
@@ -261,30 +288,31 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
   <div id="viewport">
     <canvas id="three-canvas"></canvas>
 
+    <!-- Desktop gizmo toolbar -->
     <div id="gizmo-toolbar">
       <button class="gizmo-btn active" data-mode="translate">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"/><path d="M2 12h20M12 2v20"/></svg>
-        <span class="glbl">Move</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"/><path d="M2 12h20M12 2v20"/></svg>
+        Move
       </button>
       <button class="gizmo-btn" data-mode="rotate">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
-        <span class="glbl">Rotate</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
+        Rotate
       </button>
       <button class="gizmo-btn" data-mode="scale">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6"/><path d="M21 3l-7 7M3 21l7-7"/></svg>
-        <span class="glbl">Scale</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6"/><path d="M21 3l-7 7M3 21l7-7"/></svg>
+        Scale
       </button>
     </div>
 
-    <div id="selected-indicator"></div>
-    <div id="statusbar">Tap a model to add • 1-finger orbit • 2-finger pan • pinch zoom</div>
+    <div id="sel-badge"></div>
+    <div id="statusbar">RMB orbit • Scroll zoom • LMB select</div>
   </div>
 
   <!-- Desktop right panel -->
   <div id="panel-right">
     <div class="panel-hdr">Properties</div>
-    
-    <!-- Room Size Section -->
+
+    <!-- Room size -->
     <div class="prop-sec">
       <div class="prop-ttl">Room Size</div>
       <div class="room-row"><span class="room-lbl">Width</span><input type="number" class="prop-inp" id="room-width" value="10" min="2" max="50" step="0.5"><span class="unit">m</span></div>
@@ -292,81 +320,85 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
       <div class="room-row"><span class="room-lbl">Height</span><input type="number" class="prop-inp" id="room-height" value="3" min="2" max="10" step="0.5"><span class="unit">m</span></div>
       <button class="apply-btn" id="btn-apply-room">Apply Room Size</button>
     </div>
-    
-    <!-- Colors Section -->
+
+    <!-- Colors -->
     <div class="prop-sec">
-      <div class="prop-ttl">Colors</div>
-      <div class="color-row"><span class="color-lbl">Floor</span><input type="color" class="color-picker" id="color-floor" value="#1a1a20"></div>
-      <div class="color-row"><span class="color-lbl">Walls</span><input type="color" class="color-picker" id="color-walls" value="#252530"></div>
-      <div class="color-row"><span class="color-lbl">Ambient</span><input type="color" class="color-picker" id="color-ambient" value="#ffffff"></div>
-      <div class="color-row"><span class="color-lbl">Main Light</span><input type="color" class="color-picker" id="color-dir" value="#ffeedd"></div>
-      <div class="color-row"><span class="color-lbl">Fill Light</span><input type="color" class="color-picker" id="color-fill" value="#5b8cff"></div>
+      <div class="prop-ttl">Colors &amp; Lighting</div>
+      <div class="color-row">
+        <span class="color-lbl">Floor</span>
+        <div class="color-swatch"><div class="color-preview" id="prev-floor" style="background:#2a2a32"></div><input type="color" id="color-floor" value="#2a2a32"></div>
+      </div>
+      <div class="color-row">
+        <span class="color-lbl">Walls</span>
+        <div class="color-swatch"><div class="color-preview" id="prev-wall" style="background:#303040"></div><input type="color" id="color-wall" value="#303040"></div>
+      </div>
+      <div class="color-row">
+        <span class="color-lbl">Ambient light</span>
+        <div class="color-swatch"><div class="color-preview" id="prev-ambient" style="background:#ffffff"></div><input type="color" id="color-ambient" value="#ffffff"></div>
+      </div>
+      <div class="color-row">
+        <span class="color-lbl">Sun light</span>
+        <div class="color-swatch"><div class="color-preview" id="prev-dir" style="background:#ffe8cc"></div><input type="color" id="color-dir" value="#ffe8cc"></div>
+      </div>
     </div>
-    
-    <!-- Object Properties Section -->
+
+    <!-- Object props -->
     <div class="prop-sec" id="obj-props" style="display:none">
       <div class="prop-ttl" id="obj-name-title">Object</div>
-      <div class="prop-ttl" style="margin-top:2px">Position</div>
+      <div class="prop-divider"></div>
+
+      <div class="prop-ttl">Position</div>
       <div class="prop-row"><span class="prop-lbl">X</span><input type="number" class="prop-inp" id="prop-px" step="0.1"></div>
       <div class="prop-row"><span class="prop-lbl">Z</span><input type="number" class="prop-inp" id="prop-pz" step="0.1"></div>
+
       <div class="prop-ttl" style="margin-top:8px">Rotation Y</div>
-      <div class="prop-row"><span class="prop-lbl">°</span><input type="number" class="prop-inp" id="prop-ry" step="1"></div>
-      <div class="prop-ttl" style="margin-top:8px">Scale</div>
+      <div class="prop-row"><span class="prop-lbl">°</span><input type="number" class="prop-inp" id="prop-ry" step="5"></div>
+
+      <div class="prop-ttl" style="margin-top:8px">Scale (individual)</div>
       <div class="prop-row"><span class="prop-lbl">X</span><input type="number" class="prop-inp" id="prop-sx" step="0.05" min="0.01"></div>
       <div class="prop-row"><span class="prop-lbl">Y</span><input type="number" class="prop-inp" id="prop-sy" step="0.05" min="0.01"></div>
       <div class="prop-row"><span class="prop-lbl">Z</span><input type="number" class="prop-inp" id="prop-sz" step="0.05" min="0.01"></div>
+
       <div class="prop-ttl" style="margin-top:8px">Uniform Scale</div>
-      <div class="prop-row"><span class="prop-lbl">U</span><input type="number" class="prop-inp" id="prop-uniform" step="0.05" min="0.01" value="1.00"></div>
+      <input type="number" class="prop-inp-full" id="prop-scale-all" step="0.05" min="0.01" placeholder="1.00">
+
       <button class="danger-btn" id="btn-delete-prop">Delete Object</button>
     </div>
-    
+
     <div class="no-sel-msg" id="no-select-msg">Select an object in the scene to edit its properties.</div>
-    
-    <!-- Shortcuts Section -->
+
     <div class="prop-sec" style="margin-top:auto">
-      <div class="prop-ttl">Controls</div>
+      <div class="prop-ttl">Shortcuts</div>
       <div class="sk-grid">
-        <span class="k">1 finger</span><span>Rotate view</span>
-        <span class="k">2 fingers</span><span>Pan view</span>
-        <span class="k">Pinch</span><span>Zoom</span>
-        <span class="k">W/E/R</span><span>Gizmo modes</span>
+        <span class="k">W</span><span>Move gizmo</span>
+        <span class="k">E</span><span>Rotate gizmo</span>
+        <span class="k">R</span><span>Scale gizmo</span>
         <span class="k">Del</span><span>Delete</span>
         <span class="k">Esc</span><span>Deselect</span>
+        <span class="k">RMB</span><span>Orbit</span>
+        <span class="k">MMB</span><span>Pan</span>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Mobile Controls -->
-<div id="mobile-controls">
-  <div class="control-row">
-    <button class="control-btn" onclick="window.moveObject('left', 0.2)">← Left</button>
-    <button class="control-btn" onclick="window.moveObject('right', 0.2)">Right →</button>
-  </div>
-  <div class="control-row">
-    <button class="control-btn" onclick="window.moveObject('forward', 0.2)">↑ Forward</button>
-    <button class="control-btn" onclick="window.moveObject('backward', 0.2)">↓ Backward</button>
-  </div>
-  <div class="control-row">
-    <button class="control-btn small" onclick="window.rotateObject(-0.2)">↺ Rotate</button>
-    <button class="control-btn small" onclick="window.rotateObject(0.2)">Rotate ↻</button>
-    <button class="control-btn small" onclick="window.scaleObject(-0.1)">− Scale</button>
-    <button class="control-btn small" onclick="window.scaleObject(0.1)">Scale +</button>
-  </div>
-</div>
+</div><!-- /shell -->
 
-<!-- Mobile bottom nav -->
+<!-- ═══════════════ MOBILE BOTTOM NAV ═══════════════ -->
 <div id="bottom-nav">
-  <button class="nav-btn" id="nav-models">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+  <button class="nav-tab" id="nav-models">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
     Models
   </button>
-  <button class="nav-btn" id="nav-props">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  <button class="nav-tab" id="nav-controls">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    Controls
+  </button>
+  <button class="nav-tab" id="nav-props">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     Props
   </button>
-  <button class="nav-btn del-btn" id="nav-delete">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+  <button class="nav-tab" id="nav-delete" style="color:var(--accent2)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     Delete
   </button>
 </div>
@@ -374,7 +406,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
 <button id="fab-add" aria-label="Add model">＋</button>
 
 <!-- Sheet overlay -->
-<div class="sh-overlay" id="sh-overlay"></div>
+<div class="sh-ov" id="sh-ov"></div>
 
 <!-- Models sheet -->
 <div class="bsheet" id="sh-models">
@@ -384,143 +416,205 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
   <div id="sh-model-list"></div>
 </div>
 
+<!-- Controls sheet -->
+<div class="bsheet" id="sh-controls">
+  <div class="sh-handle"></div>
+  <div class="sh-title">Transform Controls</div>
+  <button id="btn-orbit-mode">🔄 Orbit</button>
+  <div id="sh-controls-body">
+
+    <!-- Move section -->
+    <div>
+      <div class="ctrl-section-ttl">Move</div>
+      <div class="ctrl-grid">
+        <div class="ctrl-empty"></div>
+        <button class="ctrl-btn" onclick="mobileTransform('move-z-')">⬆<span class="ctrl-lbl">Forward</span></button>
+        <div class="ctrl-empty"></div>
+
+        <button class="ctrl-btn" onclick="mobileTransform('move-x-')">⬅<span class="ctrl-lbl">Left</span></button>
+        <button class="ctrl-btn" onclick="mobileTransform('move-y+')">↑<span class="ctrl-lbl">Up</span></button>
+        <button class="ctrl-btn" onclick="mobileTransform('move-x+')">➡<span class="ctrl-lbl">Right</span></button>
+
+        <div class="ctrl-empty"></div>
+        <button class="ctrl-btn" onclick="mobileTransform('move-z+')">⬇<span class="ctrl-lbl">Back</span></button>
+        <button class="ctrl-btn" onclick="mobileTransform('move-y-')">↓<span class="ctrl-lbl">Down</span></button>
+      </div>
+    </div>
+
+    <!-- Rotate section -->
+    <div>
+      <div class="ctrl-section-ttl">Rotate</div>
+      <div style="display:flex;gap:8px">
+        <button class="ctrl-btn" style="flex:1;height:52px" onclick="mobileTransform('rot-l')">↺<span class="ctrl-lbl">Left 15°</span></button>
+        <button class="ctrl-btn" style="flex:1;height:52px" onclick="mobileTransform('rot-r')">↻<span class="ctrl-lbl">Right 15°</span></button>
+      </div>
+    </div>
+
+    <!-- Scale section -->
+    <div>
+      <div class="ctrl-section-ttl">Scale</div>
+      <div style="display:flex;gap:8px">
+        <button class="ctrl-btn" style="flex:1;height:52px" onclick="mobileTransform('scale-')">⊖<span class="ctrl-lbl">Shrink</span></button>
+        <button class="ctrl-btn" style="flex:1;height:52px" onclick="mobileTransform('scale+')">⊕<span class="ctrl-lbl">Grow</span></button>
+      </div>
+    </div>
+
+    <!-- Deselect -->
+    <button class="ctrl-btn danger" style="width:100%;height:44px;font-size:13px" onclick="deselectObject()">✕  Deselect</button>
+
+  </div>
+</div>
+
 <!-- Props sheet -->
 <div class="bsheet" id="sh-props">
   <div class="sh-handle"></div>
   <div class="sh-title" id="sh-props-title">Properties</div>
   <div id="sh-props-body">
+
+    <!-- Room -->
     <div>
-      <div class="sh-sec-ttl">Room Size</div>
+      <div class="sh-ttl">Room Size</div>
       <div class="sh-row"><span class="sh-lbl">W</span><input type="number" class="sh-inp" id="sh-room-w" value="10" min="2" max="50" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
       <div class="sh-row"><span class="sh-lbl">L</span><input type="number" class="sh-inp" id="sh-room-l" value="8" min="2" max="50" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
       <div class="sh-row"><span class="sh-lbl">H</span><input type="number" class="sh-inp" id="sh-room-h" value="3" min="2" max="10" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
       <button class="apply-btn" id="sh-apply-room">Apply Room Size</button>
     </div>
-    
+
+    <div class="sh-divider"></div>
+
+    <!-- Colors (mobile) -->
     <div>
-      <div class="sh-sec-ttl">Colors</div>
-      <div class="sh-row"><span class="sh-lbl" style="width:60px">Floor</span><input type="color" class="color-picker" id="sh-color-floor" value="#1a1a20" style="flex:0;width:50px"></div>
-      <div class="sh-row"><span class="sh-lbl" style="width:60px">Walls</span><input type="color" class="color-picker" id="sh-color-walls" value="#252530" style="flex:0;width:50px"></div>
+      <div class="sh-ttl">Colors &amp; Lighting</div>
+      <div class="sh-color-row">
+        <span class="sh-color-lbl">Floor</span>
+        <div class="sh-color-swatch"><div class="sh-color-preview" style="background:#2a2a32"></div><input type="color" id="sh-color-floor" value="#2a2a32"></div>
+      </div>
+      <div class="sh-color-row">
+        <span class="sh-color-lbl">Walls</span>
+        <div class="sh-color-swatch"><div class="sh-color-preview" style="background:#303040"></div><input type="color" id="sh-color-wall" value="#303040"></div>
+      </div>
+      <div class="sh-color-row">
+        <span class="sh-color-lbl">Ambient light</span>
+        <div class="sh-color-swatch"><div class="sh-color-preview" style="background:#ffffff"></div><input type="color" id="sh-color-ambient" value="#ffffff"></div>
+      </div>
+      <div class="sh-color-row">
+        <span class="sh-color-lbl">Sun light</span>
+        <div class="sh-color-swatch"><div class="sh-color-preview" style="background:#ffe8cc"></div><input type="color" id="sh-color-dir" value="#ffe8cc"></div>
+      </div>
     </div>
-    
+
+    <div class="sh-divider"></div>
+
+    <!-- Object props -->
     <div id="sh-obj-sec" style="display:none">
-      <div class="sh-sec-ttl" id="sh-obj-name">Object</div>
-      <div class="sh-sec-ttl" style="margin-top:4px">Position</div>
+      <div class="sh-ttl" id="sh-obj-name">Object</div>
       <div class="sh-row"><span class="sh-lbl">X</span><input type="number" class="sh-inp" id="sh-px" step="0.1"></div>
       <div class="sh-row"><span class="sh-lbl">Z</span><input type="number" class="sh-inp" id="sh-pz" step="0.1"></div>
-      <div class="sh-sec-ttl" style="margin-top:8px">Rotation Y</div>
-      <div class="sh-row"><span class="sh-lbl">°</span><input type="number" class="sh-inp" id="sh-ry" step="1"></div>
-      <div class="sh-sec-ttl" style="margin-top:8px">Scale</div>
-      <div class="sh-row"><span class="sh-lbl">X</span><input type="number" class="sh-inp" id="sh-sx" step="0.05" min="0.01"></div>
-      <div class="sh-row"><span class="sh-lbl">Y</span><input type="number" class="sh-inp" id="sh-sy" step="0.05" min="0.01"></div>
-      <div class="sh-row"><span class="sh-lbl">Z</span><input type="number" class="sh-inp" id="sh-sz" step="0.05" min="0.01"></div>
-      <div class="sh-sec-ttl" style="margin-top:8px">Uniform Scale</div>
-      <div class="sh-row"><span class="sh-lbl">U</span><input type="number" class="sh-inp" id="sh-uniform" step="0.05" min="0.01" value="1.00"></div>
-      <button class="danger-btn" id="sh-delete">Delete Object</button>
+      <div class="sh-row"><span class="sh-lbl">°Y</span><input type="number" class="sh-inp" id="sh-ry" step="5"></div>
+      <div style="margin-top:8px">
+        <div class="sh-ttl">Uniform Scale</div>
+        <div class="sh-row"><span class="sh-lbl">S</span><input type="number" class="sh-inp" id="sh-scale" step="0.05" min="0.01" placeholder="1.00"></div>
+      </div>
+      <button class="danger-btn" id="sh-delete" style="margin-top:4px">Delete Object</button>
     </div>
     <div id="sh-no-sel" style="text-align:center;color:var(--text2);font-size:13px;line-height:1.7;padding:4px 0">
-      Select an object to edit, or adjust room size above.
+      Select an object in the scene to edit its properties.
     </div>
+
   </div>
 </div>
 
+<!-- ── Scripts ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="room-arranger.js"></script>
 <script>
-// ── Mobile sheet controller ──────────────────────────────────────────
-const shOverlay  = document.getElementById('sh-overlay');
-const shModels   = document.getElementById('sh-models');
-const shProps    = document.getElementById('sh-props');
+// ═══════════════════════════════════════════════
+// MOBILE SHEET CONTROLLER
+// ═══════════════════════════════════════════════
+const shOv      = document.getElementById('sh-ov');
+const shModels  = document.getElementById('sh-models');
+const shCtrl    = document.getElementById('sh-controls');
+const shProps   = document.getElementById('sh-props');
 
-function openSheet(el){ closeSheets(); shOverlay.classList.add('open'); el.classList.add('open'); }
-function closeSheets(){ shOverlay.classList.remove('open'); shModels.classList.remove('open'); shProps.classList.remove('open'); }
-shOverlay.addEventListener('click', closeSheets);
+function openSheet(el){ closeSheets(); shOv.classList.add('open'); el.classList.add('open'); }
+function closeSheets(){ shOv.classList.remove('open'); [shModels,shCtrl,shProps].forEach(s=>s.classList.remove('open')); }
+window._closeSheets = closeSheets;
+shOv.addEventListener('click', closeSheets);
 
-document.getElementById('fab-add').addEventListener('click', ()=> openSheet(shModels));
-document.getElementById('nav-models').addEventListener('click', ()=> openSheet(shModels));
-document.getElementById('nav-props').addEventListener('click', ()=> openSheet(shProps));
-document.getElementById('nav-delete').addEventListener('click', ()=>{ window.deleteSelected&&window.deleteSelected(); });
+document.getElementById('fab-add').addEventListener('click',   ()=>openSheet(shModels));
+document.getElementById('nav-models').addEventListener('click', ()=>openSheet(shModels));
+document.getElementById('nav-controls').addEventListener('click',()=>openSheet(shCtrl));
+document.getElementById('nav-props').addEventListener('click',  ()=>openSheet(shProps));
+document.getElementById('nav-delete').addEventListener('click', ()=>{ window.deleteSelected?.(); });
 
-// Mobile search
-document.getElementById('sh-model-search').addEventListener('input', e=>{
-  window.populateModelListMobile&&window.populateModelListMobile(e.target.value);
-});
+// Model search
+document.getElementById('sh-model-search').addEventListener('input', e=>window.populateModelListMobile?.(e.target.value));
 
-// Sync room inputs
+// Room size sync
 document.getElementById('sh-apply-room').addEventListener('click', ()=>{
   document.getElementById('room-width').value  = document.getElementById('sh-room-w').value;
   document.getElementById('room-length').value = document.getElementById('sh-room-l').value;
   document.getElementById('room-height').value = document.getElementById('sh-room-h').value;
-  document.getElementById('btn-apply-room').click();
+  window.applyRoom?.();
   closeSheets();
 });
-document.getElementById('btn-apply-room').addEventListener('click', ()=>{
+document.getElementById('btn-apply-room')?.addEventListener('click', ()=>{
   document.getElementById('sh-room-w').value = document.getElementById('room-width').value;
   document.getElementById('sh-room-l').value = document.getElementById('room-length').value;
   document.getElementById('sh-room-h').value = document.getElementById('room-height').value;
 });
 
-// Sync color pickers
-document.getElementById('sh-color-floor').addEventListener('input', (e)=>{
-  document.getElementById('color-floor').value = e.target.value;
-  document.getElementById('color-floor').dispatchEvent(new Event('input'));
-});
-document.getElementById('sh-color-walls').addEventListener('input', (e)=>{
-  document.getElementById('color-walls').value = e.target.value;
-  document.getElementById('color-walls').dispatchEvent(new Event('input'));
-});
-document.getElementById('color-floor').addEventListener('input', (e)=>{
-  document.getElementById('sh-color-floor').value = e.target.value;
-});
-document.getElementById('color-walls').addEventListener('input', (e)=>{
-  document.getElementById('sh-color-walls').value = e.target.value;
+// Color swatch live preview sync
+function bindColorSwatch(inputId, previewId){
+  const inp = document.getElementById(inputId);
+  const prev = document.getElementById(previewId);
+  if(!inp||!prev) return;
+  inp.addEventListener('input', ()=>{ prev.style.background=inp.value; });
+}
+['floor','wall','ambient','dir'].forEach(k=>{
+  bindColorSwatch('color-'+k,   'prev-'+k);
+  bindColorSwatch('sh-color-'+k, null); // mobile has inline preview via sh-color-preview
+  // mobile preview
+  const minp = document.getElementById('sh-color-'+k);
+  if(minp){
+    minp.addEventListener('input', ()=>{
+      const prev = minp.parentElement.querySelector('.sh-color-preview');
+      if(prev) prev.style.background=minp.value;
+    });
+  }
 });
 
-// Mobile prop inputs mirror desktop
-const mmap=[
-  ['sh-px','prop-px'],
-  ['sh-pz','prop-pz'],
-  ['sh-ry','prop-ry'],
-  ['sh-sx','prop-sx'],
-  ['sh-sy','prop-sy'],
-  ['sh-sz','prop-sz'],
-  ['sh-uniform','prop-uniform']
-];
-
-mmap.forEach(([s,d])=>{
-  document.getElementById(s).addEventListener('change', function(){
-    const el=document.getElementById(d); 
-    el.value=this.value; 
-    el.dispatchEvent(new Event('change'));
+// Mobile prop inputs → fire desktop prop inputs' change event
+const propMap = [['sh-px','prop-px'],['sh-pz','prop-pz'],['sh-ry','prop-ry']];
+propMap.forEach(([s,d])=>{
+  document.getElementById(s)?.addEventListener('change', function(){
+    const el=document.getElementById(d); if(!el) return;
+    el.value=this.value; el.dispatchEvent(new Event('change'));
   });
 });
-
-document.getElementById('sh-delete').addEventListener('click',()=>{
-  window.deleteSelected&&window.deleteSelected(); closeSheets();
+// Mobile uniform scale
+document.getElementById('sh-scale')?.addEventListener('change', function(){
+  const el=document.getElementById('prop-scale-all'); if(!el) return;
+  el.value=this.value; el.dispatchEvent(new Event('change'));
 });
+// Delete
+document.getElementById('sh-delete')?.addEventListener('click',()=>{ window.deleteSelected?.(); closeSheets(); });
 
-// Called by room-arranger.js when selection changes
-window.onPropsUpdated=function(name,px,pz,ry,sx,sy,sz){
-  document.getElementById('sh-obj-name').textContent=name;
-  document.getElementById('sh-props-title').textContent=name;
+// Callbacks from room-arranger.js
+window.onPropsUpdated = function(name,px,pz,ry,sx,sy,sz){
+  const avg = ((+sx+(+sy)+(+sz))/3).toFixed(2);
+  document.getElementById('sh-obj-name').textContent = name;
+  document.getElementById('sh-props-title').textContent = name;
   document.getElementById('sh-obj-sec').style.display='block';
   document.getElementById('sh-no-sel').style.display='none';
-  document.getElementById('sh-px').value=px;
-  document.getElementById('sh-pz').value=pz;
-  document.getElementById('sh-ry').value=ry;
-  document.getElementById('sh-sx').value=sx;
-  document.getElementById('sh-sy').value=sy;
-  document.getElementById('sh-sz').value=sz;
-  
-  const avg = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
-  document.getElementById('sh-uniform').value = avg;
+  setv('sh-px',px); setv('sh-pz',pz); setv('sh-ry',ry); setv('sh-scale',avg);
 };
-
-window.onDeselected=function(){
+window.onDeselected = function(){
   document.getElementById('sh-obj-sec').style.display='none';
   document.getElementById('sh-no-sel').style.display='block';
   document.getElementById('sh-props-title').textContent='Properties';
 };
+function setv(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
 </script>
 </body>
 </html>
