@@ -1,1116 +1,526 @@
-/**
- * Room Arranger 3D — room-arranger.js
- * Requires: three.js r128 (loaded in index.html)
- *
- * Models are auto-discovered from GitHub via the API.
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Room Arranger 3D</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f11;--surface:#18181c;--surface2:#222228;--border:#2e2e38;
+  --accent:#5b8cff;--accent2:#ff6b6b;--text:#e8e8f0;--text2:#8888a0;
+  --panel-w:260px;--props-w:280px;--topbar-h:48px;
+  --bot-h:120px;--safe-bot:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;touch-action:none}
 
-// ── GitHub repo config ─────────────────────────────────────────────
-const GITHUB_USER = 'Tossengames';
-const GITHUB_REPO = '3DRoom';
-const GITHUB_BRANCH = 'main';
-const MODELS_FOLDER = 'models';
-// ──────────────────────────────────────────────────────────────────
+/* ── Topbar ── */
+#topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--surface);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:6px;z-index:200}
+.logo{font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.1em;color:var(--accent);
+  font-weight:500;flex-shrink:0;margin-right:2px}
+.tb-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.tb-btn{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:transparent;
+  color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;user-select:none;-webkit-user-select:none}
+.tb-btn:active,.tb-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(91,140,255,.1)}
+.tb-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(91,140,255,.12)}
+.tb-spacer{flex:1}
+.tb-lbl{display:inline}
 
-// Populated at runtime from GitHub API
-let MODELS = [];
+/* ── Shell ── */
+#shell{position:fixed;top:var(--topbar-h);left:0;right:0;bottom:0;display:flex;overflow:hidden}
 
-// Icon heuristics: keyword → emoji
-const ICON_MAP = [
-  [['sofa','couch'],                   '🛋'],
-  [['chair','stool','seat','bench'],   '🪑'],
-  [['bed','mattress'],                 '🛏'],
-  [['table','desk','counter'],         '🪵'],
-  [['shelf','bookcase','bookshelf'],   '📚'],
-  [['wardrobe','closet','cabinet','dresser'], '🗄'],
-  [['lamp','light','sconce'],          '💡'],
-  [['plant','tree','flower'],          '🌿'],
-  [['tv','television','screen','stand'],'📺'],
-  [['door'],                           '🚪'],
-  [['nightstand','bedside'],           '🕯'],
-  [['rug','carpet'],                   '🟫'],
-  [['mirror'],                         '🪞'],
-  [['picture','frame','art'],          '🖼'],
-  [['curtain','blind'],                '🪟'],
-  [['bath','tub','toilet','sink'],     '🛁'],
+/* ── Left panel ── */
+#panel-left{width:var(--panel-w);background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;z-index:100}
+.panel-hdr{padding:11px 14px 9px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text2);font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);font-weight:500}
+#model-search{margin:10px 12px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;
+  transition:border-color .15s;flex-shrink:0}
+#model-search:focus{border-color:var(--accent)}
+#model-search::placeholder{color:var(--text2)}
+#model-list{flex:1;overflow-y:auto;padding:4px 8px 12px;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.cat-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);
+  font-family:'DM Mono',monospace;padding:10px 10px 4px;font-weight:500}
+.model-item{padding:10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;
+  margin-bottom:2px;border:1px solid transparent;transition:background .12s;user-select:none;-webkit-user-select:none}
+.model-item:active,.model-item:hover{background:var(--surface2);border-color:var(--border)}
+.m-icon{width:38px;height:38px;background:var(--surface2);border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.m-info{min-width:0;flex:1}
+.m-name{font-size:13px;font-weight:500;color:var(--text)}
+.m-meta{font-size:11px;color:var(--text2);margin-top:1px;font-family:'DM Mono',monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-add{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:rgba(91,140,255,.12);
+  border:1px solid rgba(91,140,255,.3);color:var(--accent);display:flex;align-items:center;
+  justify-content:center;font-size:18px;line-height:1}
+
+/* ── Viewport ── */
+#viewport{flex:1;position:relative;overflow:hidden;background:#0a0a0e}
+#three-canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;touch-action:none}
+
+/* Gizmo toolbar (desktop only) */
+#gizmo-toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:3px;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;z-index:10}
+.gizmo-btn{height:36px;padding:0 12px;border-radius:6px;border:none;background:transparent;color:var(--text2);
+  font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .12s;display:flex;
+  align-items:center;gap:5px;user-select:none;-webkit-user-select:none}
+.gizmo-btn:active,.gizmo-btn:hover{color:var(--text);background:var(--surface2)}
+.gizmo-btn.active{color:var(--accent);background:rgba(91,140,255,.15)}
+.glbl{} /* hidden on mobile via media query */
+
+#selected-indicator{position:absolute;top:10px;right:10px;background:var(--surface);
+  border:1px solid var(--accent);border-radius:6px;padding:5px 10px;font-size:11px;
+  font-family:'DM Mono',monospace;color:var(--accent);display:none;max-width:160px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:10}
+#selected-indicator.visible{display:block}
+
+#statusbar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  background:rgba(24,24,28,.92);border:1px solid var(--border);border-radius:6px;
+  padding:5px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);
+  pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;z-index:10}
+
+/* ── Right panel ── */
+#panel-right{width:var(--props-w);background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;z-index:100}
+.prop-sec{border-bottom:1px solid var(--border);padding:12px 14px}
+.prop-ttl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);
+  font-family:'DM Mono',monospace;font-weight:500;margin-bottom:9px}
+.prop-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.prop-lbl{font-size:11px;color:var(--text2);width:18px;font-family:'DM Mono',monospace;flex-shrink:0}
+.prop-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:5px;
+  padding:6px 8px;color:var(--text);font-size:13px;font-family:'DM Mono',monospace;outline:none;
+  transition:border-color .15s}
+.prop-inp:focus{border-color:var(--accent)}
+.room-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.room-lbl{font-size:11px;color:var(--text2);width:52px;font-family:'DM Mono',monospace;flex-shrink:0}
+.unit{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;flex-shrink:0}
+.color-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.color-lbl{font-size:11px;color:var(--text2);width:70px;font-family:'DM Mono',monospace;flex-shrink:0}
+.color-picker{width:40px;height:30px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer}
+.apply-btn{width:100%;padding:9px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.3);
+  border-radius:6px;color:var(--accent);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-weight:500;transition:background .15s;margin-top:4px}
+.apply-btn:active,.apply-btn:hover{background:rgba(91,140,255,.22)}
+.danger-btn{width:100%;padding:9px;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.22);
+  border-radius:6px;color:var(--accent2);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:background .15s;margin-top:4px}
+.danger-btn:active,.danger-btn:hover{background:rgba(255,107,107,.18)}
+.no-sel-msg{padding:18px 14px;text-align:center;color:var(--text2);font-size:12px;line-height:1.65}
+.sk-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;
+  font-family:'DM Mono',monospace;color:var(--text2);line-height:1.9}
+.sk-grid .k{color:var(--text)}
+
+/* ── Loading ── */
+#loading-overlay{position:fixed;inset:0;background:rgba(10,10,14,.92);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:9999;gap:14px;transition:opacity .3s}
+#loading-overlay.hidden{opacity:0;pointer-events:none}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)}
+
+/* ═══════════════════════════════════
+   MOBILE-ONLY UI
+═══════════════════════════════════ */
+#mobile-controls{display:none;position:fixed;bottom:0;left:0;right:0;
+  height:calc(var(--bot-h) + var(--safe-bot));padding-bottom:var(--safe-bot);
+  background:var(--surface);border-top:1px solid var(--border);z-index:300;
+  flex-direction:column;padding:6px 8px 0;gap:6px}
+#mobile-controls .control-row{display:flex;align-items:center;justify-content:space-around;gap:4px}
+#mobile-controls .control-btn{flex:1;height:44px;border:none;background:var(--surface2);color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;
+  font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--border);
+  transition:all .12s;user-select:none;-webkit-user-select:none}
+#mobile-controls .control-btn:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+#mobile-controls .control-btn.small{flex:0.7}
+#mobile-controls .control-label{font-size:10px;color:var(--text2);text-align:center;margin-top:2px}
+
+#bottom-nav{display:none;position:fixed;bottom:calc(var(--bot-h) + var(--safe-bot));left:0;right:0;
+  height:48px;background:var(--surface);border-top:1px solid var(--border);z-index:299;
+  align-items:center;justify-content:space-around;padding:0 4px}
+.nav-btn{flex:1;max-width:64px;height:40px;border:none;background:transparent;color:var(--text2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  border-radius:6px;cursor:pointer;transition:all .12s;user-select:none;-webkit-user-select:none;
+  font-size:9px;font-family:'DM Sans',sans-serif}
+.nav-btn:active,.nav-btn.active{color:var(--accent);background:rgba(91,140,255,.1)}
+.nav-btn.del-btn:active{color:var(--accent2);background:rgba(255,107,107,.1)}
+
+#fab-add{display:none;position:fixed;bottom:calc(var(--bot-h) + var(--safe-bot) + 60px);right:14px;
+  width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;color:#fff;
+  font-size:26px;cursor:pointer;z-index:250;box-shadow:0 4px 20px rgba(91,140,255,.45);
+  align-items:center;justify-content:center;transition:transform .15s;user-select:none}
+#fab-add:active{transform:scale(.92)}
+
+/* Sheet overlay */
+.sh-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;backdrop-filter:blur(2px)}
+.sh-overlay.open{display:block}
+/* Sheet */
+.bsheet{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-radius:16px 16px 0 0;
+  border-top:1px solid var(--border);z-index:400;display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:82dvh}
+.bsheet.open{transform:translateY(0)}
+.sh-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;flex-shrink:0}
+.sh-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text2);text-align:center;padding:7px 0 3px;flex-shrink:0}
+#sh-model-search{margin:8px 12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;flex-shrink:0}
+#sh-model-search:focus{border-color:var(--accent)}
+#sh-model-list{flex:1;overflow-y:auto;padding:4px 8px calc(var(--safe-bot) + 14px);-webkit-overflow-scrolling:touch}
+/* props sheet */
+#sh-props-body{flex:1;overflow-y:auto;padding:10px 14px calc(var(--safe-bot) + 14px);
+  -webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:14px}
+.sh-sec-ttl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);
+  font-family:'DM Mono',monospace;font-weight:500;margin-bottom:8px}
+.sh-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sh-lbl{font-size:12px;color:var(--text2);width:20px;font-family:'DM Mono',monospace;flex-shrink:0}
+.sh-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:10px 10px;color:var(--text);font-size:16px;font-family:'DM Mono',monospace;outline:none}
+.sh-inp:focus{border-color:var(--accent)}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  :root{--topbar-h:44px;--bot-h:160px}
+  #panel-left,#panel-right{display:none}
+  #gizmo-toolbar{display:none}
+  #mobile-controls{display:flex}
+  #bottom-nav{display:flex}
+  #fab-add{display:flex}
+  #shell{bottom:calc(var(--bot-h) + var(--safe-bot) + 48px)}
+  .gizmo-btn{height:40px;padding:0 9px;font-size:12px}
+  .glbl{display:none}
+  .tb-lbl{display:none}
+  .tb-btn{padding:0 8px;min-width:34px;justify-content:center}
+  .tb-sep{display:none}
+  #topbar{gap:3px}
+}
+@media(min-width:769px){
+  .sh-overlay,.bsheet,#bottom-nav,#fab-add,#mobile-controls{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Initializing Room Arranger…</div>
+</div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <span class="logo">⬛ ROOM3D</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-reset-cam">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+    <span class="tb-lbl">Reset</span>
+  </button>
+  <button class="tb-btn" id="btn-top-view">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+    <span class="tb-lbl">Top</span>
+  </button>
+  <button class="tb-btn active" id="btn-toggle-grid">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+    <span class="tb-lbl">Grid</span>
+  </button>
+  <button class="tb-btn active" id="btn-toggle-walls">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+    <span class="tb-lbl">Walls</span>
+  </button>
+  <div class="tb-spacer"></div>
+  <button class="tb-btn" id="btn-deselect">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    <span class="tb-lbl">Deselect</span>
+  </button>
+  <button class="tb-btn" id="btn-delete" style="color:var(--accent2);border-color:rgba(255,107,107,.25)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    <span class="tb-lbl">Delete</span>
+  </button>
+</div>
+
+<div id="shell">
+  <!-- Desktop left panel -->
+  <div id="panel-left">
+    <div class="panel-hdr">Model Library</div>
+    <input type="text" id="model-search" placeholder="Search models…">
+    <div id="model-list">
+      <div style="padding:28px 14px;text-align:center;color:var(--text2);font-size:12px;line-height:1.8">
+        <div class="spinner" style="margin:0 auto 12px"></div>Fetching models…
+      </div>
+    </div>
+  </div>
+
+  <!-- Viewport -->
+  <div id="viewport">
+    <canvas id="three-canvas"></canvas>
+
+    <div id="gizmo-toolbar">
+      <button class="gizmo-btn active" data-mode="translate">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"/><path d="M2 12h20M12 2v20"/></svg>
+        <span class="glbl">Move</span>
+      </button>
+      <button class="gizmo-btn" data-mode="rotate">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
+        <span class="glbl">Rotate</span>
+      </button>
+      <button class="gizmo-btn" data-mode="scale">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6"/><path d="M21 3l-7 7M3 21l7-7"/></svg>
+        <span class="glbl">Scale</span>
+      </button>
+    </div>
+
+    <div id="selected-indicator"></div>
+    <div id="statusbar">Tap a model to add • 1-finger orbit • 2-finger pan • pinch zoom</div>
+  </div>
+
+  <!-- Desktop right panel -->
+  <div id="panel-right">
+    <div class="panel-hdr">Properties</div>
+    
+    <!-- Room Size Section -->
+    <div class="prop-sec">
+      <div class="prop-ttl">Room Size</div>
+      <div class="room-row"><span class="room-lbl">Width</span><input type="number" class="prop-inp" id="room-width" value="10" min="2" max="50" step="0.5"><span class="unit">m</span></div>
+      <div class="room-row"><span class="room-lbl">Length</span><input type="number" class="prop-inp" id="room-length" value="8" min="2" max="50" step="0.5"><span class="unit">m</span></div>
+      <div class="room-row"><span class="room-lbl">Height</span><input type="number" class="prop-inp" id="room-height" value="3" min="2" max="10" step="0.5"><span class="unit">m</span></div>
+      <button class="apply-btn" id="btn-apply-room">Apply Room Size</button>
+    </div>
+    
+    <!-- Colors Section -->
+    <div class="prop-sec">
+      <div class="prop-ttl">Colors</div>
+      <div class="color-row"><span class="color-lbl">Floor</span><input type="color" class="color-picker" id="color-floor" value="#1a1a20"></div>
+      <div class="color-row"><span class="color-lbl">Walls</span><input type="color" class="color-picker" id="color-walls" value="#252530"></div>
+      <div class="color-row"><span class="color-lbl">Ambient</span><input type="color" class="color-picker" id="color-ambient" value="#ffffff"></div>
+      <div class="color-row"><span class="color-lbl">Main Light</span><input type="color" class="color-picker" id="color-dir" value="#ffeedd"></div>
+      <div class="color-row"><span class="color-lbl">Fill Light</span><input type="color" class="color-picker" id="color-fill" value="#5b8cff"></div>
+    </div>
+    
+    <!-- Object Properties Section -->
+    <div class="prop-sec" id="obj-props" style="display:none">
+      <div class="prop-ttl" id="obj-name-title">Object</div>
+      <div class="prop-ttl" style="margin-top:2px">Position</div>
+      <div class="prop-row"><span class="prop-lbl">X</span><input type="number" class="prop-inp" id="prop-px" step="0.1"></div>
+      <div class="prop-row"><span class="prop-lbl">Z</span><input type="number" class="prop-inp" id="prop-pz" step="0.1"></div>
+      <div class="prop-ttl" style="margin-top:8px">Rotation Y</div>
+      <div class="prop-row"><span class="prop-lbl">°</span><input type="number" class="prop-inp" id="prop-ry" step="1"></div>
+      <div class="prop-ttl" style="margin-top:8px">Scale</div>
+      <div class="prop-row"><span class="prop-lbl">X</span><input type="number" class="prop-inp" id="prop-sx" step="0.05" min="0.01"></div>
+      <div class="prop-row"><span class="prop-lbl">Y</span><input type="number" class="prop-inp" id="prop-sy" step="0.05" min="0.01"></div>
+      <div class="prop-row"><span class="prop-lbl">Z</span><input type="number" class="prop-inp" id="prop-sz" step="0.05" min="0.01"></div>
+      <div class="prop-ttl" style="margin-top:8px">Uniform Scale</div>
+      <div class="prop-row"><span class="prop-lbl">U</span><input type="number" class="prop-inp" id="prop-uniform" step="0.05" min="0.01" value="1.00"></div>
+      <button class="danger-btn" id="btn-delete-prop">Delete Object</button>
+    </div>
+    
+    <div class="no-sel-msg" id="no-select-msg">Select an object in the scene to edit its properties.</div>
+    
+    <!-- Shortcuts Section -->
+    <div class="prop-sec" style="margin-top:auto">
+      <div class="prop-ttl">Controls</div>
+      <div class="sk-grid">
+        <span class="k">1 finger</span><span>Rotate view</span>
+        <span class="k">2 fingers</span><span>Pan view</span>
+        <span class="k">Pinch</span><span>Zoom</span>
+        <span class="k">W/E/R</span><span>Gizmo modes</span>
+        <span class="k">Del</span><span>Delete</span>
+        <span class="k">Esc</span><span>Deselect</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Controls -->
+<div id="mobile-controls">
+  <div class="control-row">
+    <button class="control-btn" onclick="window.moveObject('left', 0.2)">← Left</button>
+    <button class="control-btn" onclick="window.moveObject('right', 0.2)">Right →</button>
+  </div>
+  <div class="control-row">
+    <button class="control-btn" onclick="window.moveObject('forward', 0.2)">↑ Forward</button>
+    <button class="control-btn" onclick="window.moveObject('backward', 0.2)">↓ Backward</button>
+  </div>
+  <div class="control-row">
+    <button class="control-btn small" onclick="window.rotateObject(-0.2)">↺ Rotate</button>
+    <button class="control-btn small" onclick="window.rotateObject(0.2)">Rotate ↻</button>
+    <button class="control-btn small" onclick="window.scaleObject(-0.1)">− Scale</button>
+    <button class="control-btn small" onclick="window.scaleObject(0.1)">Scale +</button>
+  </div>
+</div>
+
+<!-- Mobile bottom nav -->
+<div id="bottom-nav">
+  <button class="nav-btn" id="nav-models">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    Models
+  </button>
+  <button class="nav-btn" id="nav-props">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Props
+  </button>
+  <button class="nav-btn del-btn" id="nav-delete">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    Delete
+  </button>
+</div>
+
+<button id="fab-add" aria-label="Add model">＋</button>
+
+<!-- Sheet overlay -->
+<div class="sh-overlay" id="sh-overlay"></div>
+
+<!-- Models sheet -->
+<div class="bsheet" id="sh-models">
+  <div class="sh-handle"></div>
+  <div class="sh-title">Add Model</div>
+  <input type="text" id="sh-model-search" placeholder="Search…">
+  <div id="sh-model-list"></div>
+</div>
+
+<!-- Props sheet -->
+<div class="bsheet" id="sh-props">
+  <div class="sh-handle"></div>
+  <div class="sh-title" id="sh-props-title">Properties</div>
+  <div id="sh-props-body">
+    <div>
+      <div class="sh-sec-ttl">Room Size</div>
+      <div class="sh-row"><span class="sh-lbl">W</span><input type="number" class="sh-inp" id="sh-room-w" value="10" min="2" max="50" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
+      <div class="sh-row"><span class="sh-lbl">L</span><input type="number" class="sh-inp" id="sh-room-l" value="8" min="2" max="50" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
+      <div class="sh-row"><span class="sh-lbl">H</span><input type="number" class="sh-inp" id="sh-room-h" value="3" min="2" max="10" step="0.5"><span style="font-size:12px;color:var(--text2);padding-left:4px;font-family:DM Mono,monospace">m</span></div>
+      <button class="apply-btn" id="sh-apply-room">Apply Room Size</button>
+    </div>
+    
+    <div>
+      <div class="sh-sec-ttl">Colors</div>
+      <div class="sh-row"><span class="sh-lbl" style="width:60px">Floor</span><input type="color" class="color-picker" id="sh-color-floor" value="#1a1a20" style="flex:0;width:50px"></div>
+      <div class="sh-row"><span class="sh-lbl" style="width:60px">Walls</span><input type="color" class="color-picker" id="sh-color-walls" value="#252530" style="flex:0;width:50px"></div>
+    </div>
+    
+    <div id="sh-obj-sec" style="display:none">
+      <div class="sh-sec-ttl" id="sh-obj-name">Object</div>
+      <div class="sh-sec-ttl" style="margin-top:4px">Position</div>
+      <div class="sh-row"><span class="sh-lbl">X</span><input type="number" class="sh-inp" id="sh-px" step="0.1"></div>
+      <div class="sh-row"><span class="sh-lbl">Z</span><input type="number" class="sh-inp" id="sh-pz" step="0.1"></div>
+      <div class="sh-sec-ttl" style="margin-top:8px">Rotation Y</div>
+      <div class="sh-row"><span class="sh-lbl">°</span><input type="number" class="sh-inp" id="sh-ry" step="1"></div>
+      <div class="sh-sec-ttl" style="margin-top:8px">Scale</div>
+      <div class="sh-row"><span class="sh-lbl">X</span><input type="number" class="sh-inp" id="sh-sx" step="0.05" min="0.01"></div>
+      <div class="sh-row"><span class="sh-lbl">Y</span><input type="number" class="sh-inp" id="sh-sy" step="0.05" min="0.01"></div>
+      <div class="sh-row"><span class="sh-lbl">Z</span><input type="number" class="sh-inp" id="sh-sz" step="0.05" min="0.01"></div>
+      <div class="sh-sec-ttl" style="margin-top:8px">Uniform Scale</div>
+      <div class="sh-row"><span class="sh-lbl">U</span><input type="number" class="sh-inp" id="sh-uniform" step="0.05" min="0.01" value="1.00"></div>
+      <button class="danger-btn" id="sh-delete">Delete Object</button>
+    </div>
+    <div id="sh-no-sel" style="text-align:center;color:var(--text2);font-size:13px;line-height:1.7;padding:4px 0">
+      Select an object to edit, or adjust room size above.
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="room-arranger.js"></script>
+<script>
+// ── Mobile sheet controller ──────────────────────────────────────────
+const shOverlay  = document.getElementById('sh-overlay');
+const shModels   = document.getElementById('sh-models');
+const shProps    = document.getElementById('sh-props');
+
+function openSheet(el){ closeSheets(); shOverlay.classList.add('open'); el.classList.add('open'); }
+function closeSheets(){ shOverlay.classList.remove('open'); shModels.classList.remove('open'); shProps.classList.remove('open'); }
+shOverlay.addEventListener('click', closeSheets);
+
+document.getElementById('fab-add').addEventListener('click', ()=> openSheet(shModels));
+document.getElementById('nav-models').addEventListener('click', ()=> openSheet(shModels));
+document.getElementById('nav-props').addEventListener('click', ()=> openSheet(shProps));
+document.getElementById('nav-delete').addEventListener('click', ()=>{ window.deleteSelected&&window.deleteSelected(); });
+
+// Mobile search
+document.getElementById('sh-model-search').addEventListener('input', e=>{
+  window.populateModelListMobile&&window.populateModelListMobile(e.target.value);
+});
+
+// Sync room inputs
+document.getElementById('sh-apply-room').addEventListener('click', ()=>{
+  document.getElementById('room-width').value  = document.getElementById('sh-room-w').value;
+  document.getElementById('room-length').value = document.getElementById('sh-room-l').value;
+  document.getElementById('room-height').value = document.getElementById('sh-room-h').value;
+  document.getElementById('btn-apply-room').click();
+  closeSheets();
+});
+document.getElementById('btn-apply-room').addEventListener('click', ()=>{
+  document.getElementById('sh-room-w').value = document.getElementById('room-width').value;
+  document.getElementById('sh-room-l').value = document.getElementById('room-length').value;
+  document.getElementById('sh-room-h').value = document.getElementById('room-height').value;
+});
+
+// Sync color pickers
+document.getElementById('sh-color-floor').addEventListener('input', (e)=>{
+  document.getElementById('color-floor').value = e.target.value;
+  document.getElementById('color-floor').dispatchEvent(new Event('input'));
+});
+document.getElementById('sh-color-walls').addEventListener('input', (e)=>{
+  document.getElementById('color-walls').value = e.target.value;
+  document.getElementById('color-walls').dispatchEvent(new Event('input'));
+});
+document.getElementById('color-floor').addEventListener('input', (e)=>{
+  document.getElementById('sh-color-floor').value = e.target.value;
+});
+document.getElementById('color-walls').addEventListener('input', (e)=>{
+  document.getElementById('sh-color-walls').value = e.target.value;
+});
+
+// Mobile prop inputs mirror desktop
+const mmap=[
+  ['sh-px','prop-px'],
+  ['sh-pz','prop-pz'],
+  ['sh-ry','prop-ry'],
+  ['sh-sx','prop-sx'],
+  ['sh-sy','prop-sy'],
+  ['sh-sz','prop-sz'],
+  ['sh-uniform','prop-uniform']
 ];
 
-// Category heuristics: keyword → category
-const CATEGORY_MAP = [
-  [['sofa','couch','chair','stool','bench','seat'], 'Seating'],
-  [['bed','mattress','nightstand','bedside'],        'Bedroom'],
-  [['table','desk','counter'],                       'Tables'],
-  [['shelf','bookcase','wardrobe','closet','cabinet','dresser'], 'Storage'],
-  [['bath','tub','toilet','sink'],                   'Bathroom'],
-  [['lamp','light','plant','tree','tv','rug','mirror','picture','frame','curtain','blind'], 'Decor'],
-];
-
-// Colors for customization
-let roomColors = {
-  floor: 0x1a1a20,
-  walls: 0x252530,
-  ambientLight: 0xffffff,
-  directionalLight: 0xffeedd,
-  fillLight: 0x5b8cff
-};
-
-let lights = {
-  ambient: null,
-  directional: null,
-  fill: null
-};
-
-// Mobile mode detection
-let isMobile = window.innerWidth <= 768;
-
-function fileToName(filename) {
-  return filename
-    .replace(/\.glb$/i, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function nameToIcon(name) {
-  const lower = name.toLowerCase();
-  for (const [keywords, icon] of ICON_MAP) {
-    if (keywords.some(k => lower.includes(k))) return icon;
-  }
-  return '📦';
-}
-
-function nameToCategory(name) {
-  const lower = name.toLowerCase();
-  for (const [keywords, cat] of CATEGORY_MAP) {
-    if (keywords.some(k => lower.includes(k))) return cat;
-  }
-  return 'Other';
-}
-
-async function fetchModelsFromGitHub() {
-  const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${MODELS_FOLDER}?ref=${GITHUB_BRANCH}`;
-  try {
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
-    const files = await res.json();
-    const glbFiles = files.filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.glb'));
-    if (glbFiles.length === 0) {
-      showModelListMessage('No <code>.glb</code> files found in <code>models/</code> on GitHub.');
-      return;
-    }
-    MODELS = glbFiles.map(f => {
-      const name = fileToName(f.name);
-      return {
-        name,
-        file: f.name,
-        icon: nameToIcon(name),
-        category: nameToCategory(name),
-      };
-    });
-    MODELS.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
-    populateModelList();
-  } catch (err) {
-    console.error('GitHub API error:', err);
-    showModelListMessage(
-      `Could not load model list.<br><small style="color:var(--text2)">${err.message}</small><br><br>` +
-      `Check that <code>GITHUB_BRANCH</code> is correct<br>(<code>main</code> or <code>master</code>).`
-    );
-  }
-}
-
-function showModelListMessage(html) {
-  const list = document.getElementById('model-list');
-  list.innerHTML = `<div style="padding:24px 14px;text-align:center;color:var(--text2);font-size:12px;line-height:1.8;">${html}</div>`;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Globals
-// ─────────────────────────────────────────────────────────────────────
-let scene, camera, renderer;
-let orbitControls, transformControls;
-let selectedObject = null;
-let raycaster, mouse;
-let gridHelper, floor, walls = [];
-let placedObjects = [];
-let gizmoMode = 'translate';
-let roomW = 10, roomL = 8, roomH = 3;
-let wallsVisible = true;
-let gridVisible = true;
-let isOrbitDragging = false;
-let uniformScaleEnabled = false;
-
-// Mobile interaction states
-let touchStartDistance = 0;
-let touchStartPan = { x: 0, y: 0 };
-let isPinching = false;
-let isTwoFingerPan = false;
-
-// GLTFLoader
-let GLTFLoader;
-
-// ─────────────────────────────────────────────────────────────────────
-// Boot
-// ─────────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  showModelListMessage('Fetching models from GitHub…<br><div class="spinner" style="margin:12px auto;"></div>');
-  await loadGLTFLoader();
-  initScene();
-  buildRoom(roomW, roomL, roomH);
-  await fetchModelsFromGitHub();
-  bindUI();
-  animate();
-  hideLoading();
-  
-  // Listen for resize to update mobile detection
-  window.addEventListener('resize', () => {
-    isMobile = window.innerWidth <= 768;
-    if (transformControls) {
-      transformControls.enabled = !isMobile; // Disable gizmos on mobile
-    }
+mmap.forEach(([s,d])=>{
+  document.getElementById(s).addEventListener('change', function(){
+    const el=document.getElementById(d); 
+    el.value=this.value; 
+    el.dispatchEvent(new Event('change'));
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// GLTFLoader loader
-// ─────────────────────────────────────────────────────────────────────
-async function loadGLTFLoader() {
-  return new Promise((resolve) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-    s.onload = () => {
-      GLTFLoader = THREE.GLTFLoader;
-      resolve();
-    };
-    s.onerror = () => {
-      console.warn('GLTFLoader CDN failed, trying alternative…');
-      const s2 = document.createElement('script');
-      s2.src = 'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-      s2.onload = () => { GLTFLoader = THREE.GLTFLoader; resolve(); };
-      s2.onerror = () => resolve();
-      document.head.appendChild(s2);
-    };
-    document.head.appendChild(s);
-  });
-}
+document.getElementById('sh-delete').addEventListener('click',()=>{
+  window.deleteSelected&&window.deleteSelected(); closeSheets();
+});
 
-// ─────────────────────────────────────────────────────────────────────
-// Scene init
-// ─────────────────────────────────────────────────────────────────────
-function initScene() {
-  const canvas = document.getElementById('three-canvas');
-  const vp = document.getElementById('viewport');
-
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(vp.clientWidth, vp.clientHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
-
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a0e);
-  scene.fog = new THREE.FogExp2(0x0a0a0e, 0.012);
-
-  camera = new THREE.PerspectiveCamera(55, vp.clientWidth / vp.clientHeight, 0.1, 500);
-  camera.position.set(8, 9, 12);
-  camera.lookAt(0, 0, 0);
-
-  raycaster = new THREE.Raycaster();
-  mouse = new THREE.Vector2();
-
-  // Lights
-  lights.ambient = new THREE.AmbientLight(roomColors.ambientLight, 0.5);
-  scene.add(lights.ambient);
-
-  lights.directional = new THREE.DirectionalLight(roomColors.directionalLight, 1.2);
-  lights.directional.position.set(10, 20, 10);
-  lights.directional.castShadow = true;
-  lights.directional.shadow.mapSize.set(2048, 2048);
-  lights.directional.shadow.camera.near = 0.5;
-  lights.directional.shadow.camera.far = 100;
-  lights.directional.shadow.camera.left = -30;
-  lights.directional.shadow.camera.right = 30;
-  lights.directional.shadow.camera.top = 30;
-  lights.directional.shadow.camera.bottom = -30;
-  lights.directional.shadow.bias = -0.001;
-  scene.add(lights.directional);
-
-  lights.fill = new THREE.PointLight(roomColors.fillLight, 0.4, 50);
-  lights.fill.position.set(-8, 5, -8);
-  scene.add(lights.fill);
-
-  setupOrbitControls();
-  setupTransformGizmo();
-
-  window.addEventListener('resize', onResize);
-  onResize();
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Manual Orbit Controls (Enhanced for mobile)
-// ─────────────────────────────────────────────────────────────────────
-const orbit = {
-  isRMB: false, isMid: false,
-  lastX: 0, lastY: 0,
-  theta: 0.7, phi: 0.9,
-  radius: 18,
-  target: new THREE.Vector3(0, 0, 0),
-  panOffset: new THREE.Vector3(),
+// Called by room-arranger.js when selection changes
+window.onPropsUpdated=function(name,px,pz,ry,sx,sy,sz){
+  document.getElementById('sh-obj-name').textContent=name;
+  document.getElementById('sh-props-title').textContent=name;
+  document.getElementById('sh-obj-sec').style.display='block';
+  document.getElementById('sh-no-sel').style.display='none';
+  document.getElementById('sh-px').value=px;
+  document.getElementById('sh-pz').value=pz;
+  document.getElementById('sh-ry').value=ry;
+  document.getElementById('sh-sx').value=sx;
+  document.getElementById('sh-sy').value=sy;
+  document.getElementById('sh-sz').value=sz;
+  
+  const avg = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
+  document.getElementById('sh-uniform').value = avg;
 };
 
-function setupOrbitControls() {
-  const canvas = document.getElementById('three-canvas');
-
-  canvas.addEventListener('contextmenu', e => e.preventDefault());
-  canvas.addEventListener('mousedown', onCanvasMouseDown);
-  canvas.addEventListener('mousemove', onCanvasMouseMove);
-  canvas.addEventListener('mouseup', onCanvasMouseUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
-
-  // Touch events for mobile
-  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
-  canvas.addEventListener('touchend', onTouchEnd);
-}
-
-function updateCameraFromOrbit() {
-  orbit.phi = Math.max(0.05, Math.min(Math.PI / 2 - 0.02, orbit.phi));
-  orbit.radius = Math.max(1, Math.min(80, orbit.radius));
-  const x = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
-  const y = orbit.radius * Math.cos(orbit.phi);
-  const z = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
-  camera.position.copy(orbit.target).add(new THREE.Vector3(x, y, z));
-  camera.lookAt(orbit.target);
-}
-
-let touchCache = [];
-let prevPinchDist = null;
-
-function onTouchStart(e) {
-  e.preventDefault();
-  touchCache = Array.from(e.touches);
-  
-  if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    touchStartDistance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Store center point for panning
-    touchStartPan.x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    touchStartPan.y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    
-    isPinching = true;
-    isTwoFingerPan = false;
-  }
-}
-
-function onTouchMove(e) {
-  e.preventDefault();
-  
-  if (e.touches.length === 1 && !isPinching) {
-    // Single finger rotate
-    const t = e.touches[0];
-    if (touchCache.length >= 1) {
-      const dx = t.clientX - touchCache[0].clientX;
-      const dy = t.clientY - touchCache[0].clientY;
-      orbit.theta -= dx * 0.005;
-      orbit.phi -= dy * 0.005;
-      updateCameraFromOrbit();
-    }
-  } else if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Get current center point
-    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    
-    if (Math.abs(distance - touchStartDistance) > 10) {
-      // Pinch zoom
-      if (prevPinchDist !== null) {
-        orbit.radius *= prevPinchDist / distance;
-        updateCameraFromOrbit();
-        isTwoFingerPan = false;
-      }
-      prevPinchDist = distance;
-    } else {
-      // Two finger pan
-      if (!isTwoFingerPan) {
-        isTwoFingerPan = true;
-      } else {
-        const panX = (centerX - touchStartPan.x) * 0.01 * orbit.radius;
-        const panY = (centerY - touchStartPan.y) * 0.01 * orbit.radius;
-        
-        // Calculate pan directions
-        const right = new THREE.Vector3();
-        right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
-        const up = camera.up.clone();
-        
-        orbit.target.addScaledVector(right, -panX);
-        orbit.target.addScaledVector(up, panY);
-        updateCameraFromOrbit();
-      }
-    }
-    
-    // Update start positions for next move
-    touchStartPan.x = centerX;
-    touchStartPan.y = centerY;
-    touchStartDistance = distance;
-  }
-  
-  touchCache = Array.from(e.touches);
-}
-
-function onTouchEnd(e) {
-  e.preventDefault();
-  prevPinchDist = null;
-  touchCache = [];
-  isPinching = false;
-  isTwoFingerPan = false;
-}
-
-function onCanvasMouseDown(e) {
-  if (e.button === 2) { orbit.isRMB = true; isOrbitDragging = false; }
-  if (e.button === 1) { orbit.isMid = true; }
-  orbit.lastX = e.clientX;
-  orbit.lastY = e.clientY;
-}
-
-function onCanvasMouseMove(e) {
-  const dx = e.clientX - orbit.lastX;
-  const dy = e.clientY - orbit.lastY;
-  
-  if (orbit.isRMB) {
-    if (Math.abs(dx) + Math.abs(dy) > 2) isOrbitDragging = true;
-    orbit.theta -= dx * 0.004;
-    orbit.phi -= dy * 0.004;
-    updateCameraFromOrbit();
-  }
-  
-  if (orbit.isMid) {
-    const panSpeed = orbit.radius * 0.001;
-    const panRight = new THREE.Vector3().crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
-    orbit.target.addScaledVector(panRight, -dx * panSpeed);
-    orbit.target.y += dy * panSpeed;
-    updateCameraFromOrbit();
-  }
-  
-  orbit.lastX = e.clientX;
-  orbit.lastY = e.clientY;
-  updateMouseCoords(e);
-}
-
-function onCanvasMouseUp(e) {
-  orbit.isRMB = false;
-  orbit.isMid = false;
-}
-
-function onWheel(e) {
-  e.preventDefault();
-  orbit.radius *= 1 + e.deltaY * 0.001;
-  updateCameraFromOrbit();
-}
-
-function updateMouseCoords(e) {
-  const vp = document.getElementById('viewport');
-  const rect = vp.getBoundingClientRect();
-  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Transform Gizmo (Disabled on mobile)
-// ─────────────────────────────────────────────────────────────────────
-function setupTransformGizmo() {
-  if (isMobile) return; // Don't load gizmos on mobile
-  
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js';
-  s.onload = () => {
-    transformControls = new THREE.TransformControls(camera, renderer.domElement);
-    transformControls.setMode(gizmoMode);
-    scene.add(transformControls);
-
-    transformControls.addEventListener('dragging-changed', (e) => {
-      orbit.isRMB = false;
-      orbit.isMid = false;
-    });
-    transformControls.addEventListener('change', () => {
-      if (selectedObject) {
-        snapToFloor(selectedObject);
-        updatePropsPanel();
-      }
-    });
-    transformControls.addEventListener('objectChange', () => {
-      if (selectedObject) {
-        snapToFloor(selectedObject);
-        updatePropsPanel();
-      }
-    });
-  };
-  s.onerror = () => {
-    const s2 = document.createElement('script');
-    s2.src = 'https://unpkg.com/three@0.128.0/examples/js/controls/TransformControls.js';
-    s2.onload = s.onload;
-    document.head.appendChild(s2);
-  };
-  document.head.appendChild(s);
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Room building with customizable colors
-// ─────────────────────────────────────────────────────────────────────
-function buildRoom(w, l, h) {
-  if (floor) scene.remove(floor);
-  walls.forEach(w => scene.remove(w));
-  walls = [];
-  if (gridHelper) scene.remove(gridHelper);
-
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: roomColors.floor,
-    roughness: 0.9,
-    metalness: 0.0,
-  });
-  
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: roomColors.walls,
-    roughness: 0.85,
-    metalness: 0.0,
-    side: THREE.FrontSide,
-  });
-
-  // Floor
-  const floorGeo = new THREE.PlaneGeometry(w, l);
-  floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  floor.name = '__floor';
-  scene.add(floor);
-
-  // Grid
-  const gridSize = Math.max(w, l);
-  gridHelper = new THREE.GridHelper(
-    Math.ceil(gridSize) * 2,
-    Math.ceil(gridSize) * 2,
-    0x2e2e38,
-    0x222228
-  );
-  gridHelper.position.y = 0.001;
-  gridHelper.name = '__grid';
-  scene.add(gridHelper);
-
-  // Walls
-  const wallDefs = [
-    { pos: [0, h/2, -l/2], rot: [0, 0, 0],         size: [w, h] },
-    { pos: [0, h/2,  l/2], rot: [0, Math.PI, 0],   size: [w, h] },
-    { pos: [-w/2, h/2, 0], rot: [0, Math.PI/2, 0], size: [l, h] },
-    { pos: [ w/2, h/2, 0], rot: [0,-Math.PI/2, 0], size: [l, h] },
-  ];
-
-  wallDefs.forEach(d => {
-    const geo = new THREE.PlaneGeometry(d.size[0], d.size[1]);
-    const mesh = new THREE.Mesh(geo, wallMat);
-    mesh.position.set(...d.pos);
-    mesh.rotation.set(...d.rot);
-    mesh.receiveShadow = true;
-    mesh.name = '__wall';
-    mesh.visible = wallsVisible;
-    scene.add(mesh);
-    walls.push(mesh);
-  });
-
-  // Skirting lines
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0x3a3a50 });
-  const corners = [
-    [-w/2, 0, -l/2], [w/2, 0, -l/2],
-    [w/2, 0, l/2],   [-w/2, 0, l/2],
-    [-w/2, 0, -l/2],
-  ];
-  const pts = corners.map(c => new THREE.Vector3(...c));
-  const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-  const line = new THREE.Line(lineGeo, edgeMat);
-  line.name = '__wall';
-  line.position.y = 0.002;
-  scene.add(line);
-  walls.push(line);
-
-  orbit.target.set(0, 0, 0);
-  orbit.radius = Math.max(w, l) * 1.4;
-  updateCameraFromOrbit();
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Color customization
-// ─────────────────────────────────────────────────────────────────────
-function updateColors() {
-  // Update floor material
-  if (floor && floor.material) {
-    floor.material.color.setHex(roomColors.floor);
-  }
-  
-  // Update walls
-  walls.forEach(wall => {
-    if (wall.isMesh && wall.material) {
-      wall.material.color.setHex(roomColors.walls);
-    }
-  });
-  
-  // Update lights
-  if (lights.ambient) {
-    lights.ambient.color.setHex(roomColors.ambientLight);
-  }
-  if (lights.directional) {
-    lights.directional.color.setHex(roomColors.directionalLight);
-  }
-  if (lights.fill) {
-    lights.fill.color.setHex(roomColors.fillLight);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Snap to floor
-// ─────────────────────────────────────────────────────────────────────
-function snapToFloor(obj) {
-  if (!obj) return;
-  const box = new THREE.Box3().setFromObject(obj);
-  const minY = box.min.y;
-  obj.position.y -= minY;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Model list population
-// ─────────────────────────────────────────────────────────────────────
-function buildModelItems(filter, onClick) {
-  const frag = document.createDocumentFragment();
-  const groups = {};
-  MODELS.forEach(m => {
-    if (filter && !m.name.toLowerCase().includes(filter.toLowerCase())) return;
-    if (!groups[m.category]) groups[m.category] = [];
-    groups[m.category].push(m);
-  });
-  const cats = Object.keys(groups);
-  if (cats.length === 0) {
-    const msg = document.createElement('div');
-    msg.style.cssText = 'padding:20px;text-align:center;color:var(--text2);font-size:12px';
-    msg.textContent = 'No models found';
-    frag.appendChild(msg);
-    return frag;
-  }
-  cats.forEach(cat => {
-    const catEl = document.createElement('div');
-    catEl.className = 'cat-lbl';
-    catEl.textContent = cat;
-    frag.appendChild(catEl);
-    groups[cat].forEach(model => {
-      const item = document.createElement('div');
-      item.className = 'model-item';
-      item.innerHTML = `
-        <div class="m-icon">${model.icon}</div>
-        <div class="m-info">
-          <div class="m-name">${model.name}</div>
-          <div class="m-meta">${model.file}</div>
-        </div>
-        <div class="m-add">+</div>
-      `;
-      item.addEventListener('click', () => onClick(model));
-      frag.appendChild(item);
-    });
-  });
-  return frag;
-}
-
-function populateModelList(filter = '') {
-  const list = document.getElementById('model-list');
-  list.innerHTML = '';
-  list.appendChild(buildModelItems(filter, addModelToScene));
-  window.populateModelListMobile(filter);
-}
-
-window.populateModelListMobile = function(filter = '') {
-  const list = document.getElementById('sh-model-list');
-  if (!list) return;
-  list.innerHTML = '';
-  list.appendChild(buildModelItems(filter, model => {
-    addModelToScene(model);
-    const overlay = document.getElementById('sh-overlay');
-    const sheet   = document.getElementById('sh-models');
-    if (overlay) overlay.classList.remove('open');
-    if (sheet)   sheet.classList.remove('open');
-  }));
+window.onDeselected=function(){
+  document.getElementById('sh-obj-sec').style.display='none';
+  document.getElementById('sh-no-sel').style.display='block';
+  document.getElementById('sh-props-title').textContent='Properties';
 };
-
-// ─────────────────────────────────────────────────────────────────────
-// Add model to scene
-// ─────────────────────────────────────────────────────────────────────
-function addModelToScene(modelDef) {
-  if (!GLTFLoader) {
-    showStatus(`GLTFLoader not ready yet, please wait…`);
-    return;
-  }
-  showStatus(`Loading ${modelDef.name}…`);
-  const loader = new GLTFLoader();
-  const modelUrl = `models/${modelDef.file}`;
-  
-  loader.load(
-    modelUrl,
-    (gltf) => {
-      const obj = gltf.scene;
-      obj.name = modelDef.name;
-      obj.userData.modelDef = modelDef;
-
-      obj.traverse(child => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-
-      const box = new THREE.Box3().setFromObject(obj);
-      const center = box.getCenter(new THREE.Vector3());
-      
-      obj.position.sub(center);
-      scene.add(obj);
-      obj.position.set(0, 0, 0);
-      snapToFloor(obj);
-
-      placedObjects.push(obj);
-      selectObject(obj);
-      showStatus(`Added ${modelDef.name}`);
-    },
-    undefined,
-    (err) => {
-      console.error('Error loading model:', err);
-      addPlaceholderBox(modelDef);
-    }
-  );
-}
-
-function addPlaceholderBox(modelDef) {
-  const sizes = { 
-    Seating: [0.8, 0.9, 0.9], 
-    Tables: [1.2, 0.75, 0.7], 
-    Storage: [0.9, 1.8, 0.45], 
-    Bedroom: [1.6, 0.5, 2.0], 
-    Decor: [0.3, 1.5, 0.3],
-    Other: [1.0, 1.0, 1.0]
-  };
-  
-  const s = sizes[modelDef.category] || sizes.Other;
-  const geo = new THREE.BoxGeometry(s[0], s[1], s[2]);
-  const hue = (modelDef.name.charCodeAt(0) * 37) % 360;
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(`hsl(${hue}, 40%, 45%)`),
-    roughness: 0.6,
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.9
-  });
-  
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.name = modelDef.name;
-  mesh.userData.modelDef = modelDef;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  mesh.position.set(0, 0, 0);
-  
-  scene.add(mesh);
-  snapToFloor(mesh);
-  
-  placedObjects.push(mesh);
-  selectObject(mesh);
-  showStatus(`⚠ Placeholder for ${modelDef.name}`);
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Selection
-// ─────────────────────────────────────────────────────────────────────
-function selectObject(obj) {
-  selectedObject = obj;
-  
-  // On mobile, don't use transform controls
-  if (!isMobile && transformControls) {
-    transformControls.attach(obj);
-  }
-  
-  updatePropsPanel();
-  
-  const indicator = document.getElementById('selected-indicator');
-  if (indicator) {
-    indicator.textContent = obj.name;
-    indicator.classList.add('visible');
-  }
-  
-  showStatus(`Selected: ${obj.name}`);
-}
-
-function deselectObject() {
-  selectedObject = null;
-  if (!isMobile && transformControls) transformControls.detach();
-  
-  const propsPanel = document.getElementById('obj-props');
-  const noSelectMsg = document.getElementById('no-select-msg');
-  const indicator = document.getElementById('selected-indicator');
-  
-  if (propsPanel) propsPanel.style.display = 'none';
-  if (noSelectMsg) noSelectMsg.style.display = 'block';
-  if (indicator) indicator.classList.remove('visible');
-  
-  showStatus('Tap an object to select');
-  if (window.onDeselected) window.onDeselected();
-}
-
-function deleteSelected() {
-  if (!selectedObject) return;
-  scene.remove(selectedObject);
-  placedObjects = placedObjects.filter(o => o !== selectedObject);
-  deselectObject();
-}
-window.deleteSelected = deleteSelected;
-
-// ─────────────────────────────────────────────────────────────────────
-// Click to select
-// ─────────────────────────────────────────────────────────────────────
-document.getElementById('three-canvas').addEventListener('click', onCanvasClick);
-
-function onCanvasClick(e) {
-  if (isOrbitDragging) { isOrbitDragging = false; return; }
-
-  updateMouseCoords(e);
-  raycaster.setFromCamera(mouse, camera);
-
-  const hits = raycaster.intersectObjects(placedObjects, true);
-  if (hits.length > 0) {
-    let obj = hits[0].object;
-    while (obj.parent && !placedObjects.includes(obj)) {
-      obj = obj.parent;
-    }
-    if (placedObjects.includes(obj)) {
-      selectObject(obj);
-    }
-  } else {
-    const floorHits = raycaster.intersectObject(floor, false);
-    if (floorHits.length > 0) {
-      deselectObject();
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Mobile object manipulation buttons
-// ─────────────────────────────────────────────────────────────────────
-function moveObject(direction, amount = 0.1) {
-  if (!selectedObject) return;
-  
-  switch(direction) {
-    case 'left': selectedObject.position.x -= amount; break;
-    case 'right': selectedObject.position.x += amount; break;
-    case 'forward': selectedObject.position.z -= amount; break;
-    case 'backward': selectedObject.position.z += amount; break;
-    case 'up': selectedObject.position.y += amount; break;
-    case 'down': selectedObject.position.y -= amount; break;
-  }
-  
-  snapToFloor(selectedObject);
-  updatePropsPanel();
-}
-
-function rotateObject(amount = 0.1) {
-  if (!selectedObject) return;
-  selectedObject.rotation.y += amount;
-  updatePropsPanel();
-}
-
-function scaleObject(amount = 0.05) {
-  if (!selectedObject) return;
-  const newScale = selectedObject.scale.x + amount;
-  if (newScale > 0.01) {
-    selectedObject.scale.set(newScale, newScale, newScale);
-    snapToFloor(selectedObject);
-    updatePropsPanel();
-  }
-}
-
-// Expose for mobile UI
-window.moveObject = moveObject;
-window.rotateObject = rotateObject;
-window.scaleObject = scaleObject;
-
-// ─────────────────────────────────────────────────────────────────────
-// Properties panel
-// ─────────────────────────────────────────────────────────────────────
-function updatePropsPanel() {
-  if (!selectedObject) return;
-  const o = selectedObject;
-  const p = o.position;
-  const s = o.scale;
-  const px = p.x.toFixed(2), pz = p.z.toFixed(2);
-  const ry = THREE.MathUtils.radToDeg(o.rotation.y).toFixed(1);
-  const sx = s.x.toFixed(2), sy = s.y.toFixed(2), sz = s.z.toFixed(2);
-
-  const propsPanel = document.getElementById('obj-props');
-  const noSelectMsg = document.getElementById('no-select-msg');
-  
-  if (propsPanel) propsPanel.style.display = 'block';
-  if (noSelectMsg) noSelectMsg.style.display = 'none';
-  
-  const nameTitle = document.getElementById('obj-name-title');
-  if (nameTitle) nameTitle.textContent = o.name;
-  
-  // Update inputs
-  setInputValue('prop-px', px);
-  setInputValue('prop-pz', pz);
-  setInputValue('prop-ry', ry);
-  setInputValue('prop-sx', sx);
-  setInputValue('prop-sy', sy);
-  setInputValue('prop-sz', sz);
-  
-  const uniformField = document.getElementById('prop-uniform');
-  if (uniformField) {
-    const avgScale = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
-    uniformField.value = avgScale;
-  }
-
-  if (window.onPropsUpdated) {
-    window.onPropsUpdated(o.name, px, pz, ry, sx, sy, sz);
-  }
-}
-
-function setInputValue(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.value = value;
-}
-
-function applyUniformScale(value) {
-  if (!selectedObject) return;
-  const val = parseFloat(value);
-  if (isNaN(val) || val <= 0) return;
-  selectedObject.scale.set(val, val, val);
-  snapToFloor(selectedObject);
-  updatePropsPanel();
-}
-
-function bindPropInput(id, apply) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener('change', function () {
-      if (!selectedObject) return;
-      apply(parseFloat(this.value));
-      snapToFloor(selectedObject);
-      updatePropsPanel();
-    });
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// UI bindings
-// ─────────────────────────────────────────────────────────────────────
-function bindUI() {
-  // Search
-  const searchInput = document.getElementById('model-search');
-  if (searchInput) {
-    searchInput.addEventListener('input', e => {
-      populateModelList(e.target.value);
-    });
-  }
-
-  // Gizmo mode buttons (desktop only)
-  if (!isMobile) {
-    document.querySelectorAll('.gizmo-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        setGizmoMode(btn.dataset.mode);
-      });
-    });
-  }
-
-  // Topbar buttons
-  const resetCamBtn = document.getElementById('btn-reset-cam');
-  if (resetCamBtn) {
-    resetCamBtn.addEventListener('click', () => {
-      orbit.theta = 0.7; orbit.phi = 0.9;
-      orbit.radius = Math.max(roomW, roomL) * 1.4;
-      orbit.target.set(0, 0, 0);
-      updateCameraFromOrbit();
-    });
-  }
-
-  const topViewBtn = document.getElementById('btn-top-view');
-  if (topViewBtn) {
-    topViewBtn.addEventListener('click', () => {
-      orbit.phi = 0.06;
-      updateCameraFromOrbit();
-    });
-  }
-
-  const toggleGridBtn = document.getElementById('btn-toggle-grid');
-  if (toggleGridBtn) {
-    toggleGridBtn.addEventListener('click', function () {
-      gridVisible = !gridVisible;
-      if (gridHelper) gridHelper.visible = gridVisible;
-      this.classList.toggle('active', gridVisible);
-    });
-  }
-
-  const toggleWallsBtn = document.getElementById('btn-toggle-walls');
-  if (toggleWallsBtn) {
-    toggleWallsBtn.addEventListener('click', function () {
-      wallsVisible = !wallsVisible;
-      walls.forEach(w => { w.visible = wallsVisible; });
-      this.classList.toggle('active', wallsVisible);
-    });
-  }
-
-  const deselectBtn = document.getElementById('btn-deselect');
-  if (deselectBtn) deselectBtn.addEventListener('click', deselectObject);
-
-  const deleteBtn = document.getElementById('btn-delete');
-  if (deleteBtn) deleteBtn.addEventListener('click', deleteSelected);
-
-  const deletePropBtn = document.getElementById('btn-delete-prop');
-  if (deletePropBtn) deletePropBtn.addEventListener('click', deleteSelected);
-
-  // Room apply
-  const applyRoomBtn = document.getElementById('btn-apply-room');
-  if (applyRoomBtn) {
-    applyRoomBtn.addEventListener('click', () => {
-      roomW = parseFloat(document.getElementById('room-width').value) || 10;
-      roomL = parseFloat(document.getElementById('room-length').value) || 8;
-      roomH = parseFloat(document.getElementById('room-height').value) || 3;
-      buildRoom(roomW, roomL, roomH);
-      showStatus(`Room updated: ${roomW}m × ${roomL}m × ${roomH}m`);
-    });
-  }
-
-  // Color pickers
-  const floorColor = document.getElementById('color-floor');
-  if (floorColor) {
-    floorColor.addEventListener('input', (e) => {
-      roomColors.floor = parseInt(e.target.value.substring(1), 16);
-      updateColors();
-    });
-  }
-
-  const wallsColor = document.getElementById('color-walls');
-  if (wallsColor) {
-    wallsColor.addEventListener('input', (e) => {
-      roomColors.walls = parseInt(e.target.value.substring(1), 16);
-      updateColors();
-    });
-  }
-
-  const ambientColor = document.getElementById('color-ambient');
-  if (ambientColor) {
-    ambientColor.addEventListener('input', (e) => {
-      roomColors.ambientLight = parseInt(e.target.value.substring(1), 16);
-      updateColors();
-    });
-  }
-
-  const dirColor = document.getElementById('color-dir');
-  if (dirColor) {
-    dirColor.addEventListener('input', (e) => {
-      roomColors.directionalLight = parseInt(e.target.value.substring(1), 16);
-      updateColors();
-    });
-  }
-
-  const fillColor = document.getElementById('color-fill');
-  if (fillColor) {
-    fillColor.addEventListener('input', (e) => {
-      roomColors.fillLight = parseInt(e.target.value.substring(1), 16);
-      updateColors();
-    });
-  }
-
-  // Property inputs
-  bindPropInput('prop-px', v => { selectedObject.position.x = v; });
-  bindPropInput('prop-pz', v => { selectedObject.position.z = v; });
-  bindPropInput('prop-ry', v => { selectedObject.rotation.y = THREE.MathUtils.degToRad(v); });
-  bindPropInput('prop-sx', v => { selectedObject.scale.x = Math.max(0.01, v); });
-  bindPropInput('prop-sy', v => { selectedObject.scale.y = Math.max(0.01, v); });
-  bindPropInput('prop-sz', v => { selectedObject.scale.z = Math.max(0.01, v); });
-  
-  const uniformField = document.getElementById('prop-uniform');
-  if (uniformField) {
-    uniformField.addEventListener('change', function() {
-      applyUniformScale(this.value);
-    });
-  }
-
-  // Keyboard shortcuts (desktop only)
-  window.addEventListener('keydown', onKeyDown);
-}
-
-function setGizmoMode(mode) {
-  window.setGizmoMode = setGizmoMode;
-  gizmoMode = mode;
-  if (!isMobile && transformControls) {
-    transformControls.setMode(mode);
-  }
-  document.querySelectorAll('.gizmo-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === mode);
-  });
-}
-
-function onKeyDown(e) {
-  if (isMobile) return; // No keyboard shortcuts on mobile
-  if (e.target.tagName === 'INPUT') return;
-  
-  switch (e.key) {
-    case 'w': case 'W': setGizmoMode('translate'); break;
-    case 'e': case 'E': setGizmoMode('rotate'); break;
-    case 'r': case 'R': setGizmoMode('scale'); break;
-    case 'Delete': case 'Backspace': deleteSelected(); break;
-    case 'Escape': deselectObject(); break;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Render loop
-// ─────────────────────────────────────────────────────────────────────
-function animate() {
-  requestAnimationFrame(animate);
-  if (!isMobile && transformControls) {
-    transformControls.updateMatrixWorld();
-  }
-  renderer.render(scene, camera);
-
-  if (selectedObject && !isMobile && transformControls && transformControls.dragging) {
-    snapToFloor(selectedObject);
-    updatePropsPanel();
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Resize
-// ─────────────────────────────────────────────────────────────────────
-function onResize() {
-  const vp = document.getElementById('viewport');
-  const w = vp.clientWidth, h = vp.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-  if (!isMobile && transformControls) transformControls.update();
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────
-function showStatus(msg) {
-  const statusbar = document.getElementById('statusbar');
-  if (statusbar) statusbar.textContent = msg;
-}
-
-function hideLoading() {
-  const el = document.getElementById('loading-overlay');
-  if (el) {
-    el.classList.add('hidden');
-    setTimeout(() => el.remove(), 400);
-  }
-}
-
-// Initial camera
-updateCameraFromOrbit();
+</script>
+</body>
+</html>
