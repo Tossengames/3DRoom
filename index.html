@@ -284,6 +284,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
       <div class="prop-row"><span class="prop-lbl">X</span><input type="number" class="prop-inp" id="prop-sx" step="0.05" min="0.01"></div>
       <div class="prop-row"><span class="prop-lbl">Y</span><input type="number" class="prop-inp" id="prop-sy" step="0.05" min="0.01"></div>
       <div class="prop-row"><span class="prop-lbl">Z</span><input type="number" class="prop-inp" id="prop-sz" step="0.05" min="0.01"></div>
+      <div class="prop-ttl" style="margin-top:8px">Uniform Scale</div>
+      <div class="prop-row"><span class="prop-lbl">U</span><input type="number" class="prop-inp" id="prop-uniform" step="0.05" min="0.01" value="1.00"></div>
       <button class="danger-btn" id="btn-delete-prop">Delete Object</button>
     </div>
     <div class="no-sel-msg" id="no-select-msg">Select an object in the scene to edit its properties.</div>
@@ -367,6 +369,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:v
       <div class="sh-row"><span class="sh-lbl">X</span><input type="number" class="sh-inp" id="sh-sx" step="0.05" min="0.01"></div>
       <div class="sh-row"><span class="sh-lbl">Y</span><input type="number" class="sh-inp" id="sh-sy" step="0.05" min="0.01"></div>
       <div class="sh-row"><span class="sh-lbl">Z</span><input type="number" class="sh-inp" id="sh-sz" step="0.05" min="0.01"></div>
+      <div class="sh-sec-ttl" style="margin-top:8px">Uniform Scale</div>
+      <div class="sh-row"><span class="sh-lbl">U</span><input type="number" class="sh-inp" id="sh-uniform" step="0.05" min="0.01" value="1.00"></div>
       <button class="danger-btn" id="sh-delete">Delete Object</button>
     </div>
     <div id="sh-no-sel" style="text-align:center;color:var(--text2);font-size:13px;line-height:1.7;padding:4px 0">
@@ -422,13 +426,24 @@ document.getElementById('btn-apply-room').addEventListener('click', ()=>{
 });
 
 // Mobile prop inputs mirror desktop
-const mmap=[['sh-px','prop-px'],['sh-pz','prop-pz'],['sh-ry','prop-ry'],
-            ['sh-sx','prop-sx'],['sh-sy','prop-sy'],['sh-sz','prop-sz']];
+const mmap=[
+  ['sh-px','prop-px'],
+  ['sh-pz','prop-pz'],
+  ['sh-ry','prop-ry'],
+  ['sh-sx','prop-sx'],
+  ['sh-sy','prop-sy'],
+  ['sh-sz','prop-sz'],
+  ['sh-uniform','prop-uniform']
+];
+
 mmap.forEach(([s,d])=>{
   document.getElementById(s).addEventListener('change', function(){
-    const el=document.getElementById(d); el.value=this.value; el.dispatchEvent(new Event('change'));
+    const el=document.getElementById(d); 
+    el.value=this.value; 
+    el.dispatchEvent(new Event('change'));
   });
 });
+
 document.getElementById('sh-delete').addEventListener('click',()=>{
   window.deleteSelected&&window.deleteSelected(); closeSheets();
 });
@@ -445,6 +460,10 @@ window.onPropsUpdated=function(name,px,pz,ry,sx,sy,sz){
   document.getElementById('sh-sx').value=sx;
   document.getElementById('sh-sy').value=sy;
   document.getElementById('sh-sz').value=sz;
+  
+  // Update uniform scale field with average
+  const avg = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
+  document.getElementById('sh-uniform').value = avg;
 };
 window.onDeselected=function(){
   document.getElementById('sh-obj-sec').style.display='none';
