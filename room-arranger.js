@@ -122,6 +122,7 @@ let roomW = 10, roomL = 8, roomH = 3;
 let wallsVisible = true;
 let gridVisible = true;
 let isOrbitDragging = false;
+let uniformScaleEnabled = false; // Toggle for uniform scaling
 
 // GLTFLoader (r128 compatible — loaded via ES module shim below)
 let GLTFLoader;
@@ -475,13 +476,16 @@ function buildRoom(w, l, h) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Snap to floor
+// Snap to floor (improved)
 // ─────────────────────────────────────────────────────────────────────
 function snapToFloor(obj) {
   if (!obj) return;
+  
   // Compute bounding box
   const box = new THREE.Box3().setFromObject(obj);
   const minY = box.min.y;
+  
+  // Move object so its lowest point sits on floor (y=0)
   obj.position.y -= minY;
 }
 
@@ -549,7 +553,7 @@ window.populateModelListMobile = function(filter = '') {
 };
 
 // ─────────────────────────────────────────────────────────────────────
-// Add model to scene
+// Add model to scene (FIXED positioning)
 // ─────────────────────────────────────────────────────────────────────
 function addModelToScene(modelDef) {
   if (!GLTFLoader) {
@@ -558,8 +562,13 @@ function addModelToScene(modelDef) {
   }
   showStatus(`Loading ${modelDef.name}…`);
   const loader = new GLTFLoader();
+  
+  // Construct the full URL to the model file
+  // Since models are in the root/models folder relative to the HTML
+  const modelUrl = `models/${modelDef.file}`;
+  
   loader.load(
-    `models/${modelDef.file}`,
+    modelUrl,
     (gltf) => {
       const obj = gltf.scene;
       obj.name = modelDef.name;
@@ -573,20 +582,39 @@ function addModelToScene(modelDef) {
         }
       });
 
-      // Center it, place at room center
+      // Center the model's pivot point
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
-      obj.position.sub(center); // center pivot
+      const size = box.getSize(new THREE.Vector3());
+      
+      // Reposition so the model is centered at origin
+      obj.position.sub(center);
+      
+      // Add to scene at room center
       scene.add(obj);
+      
+      // Position at room center (0,0,0) and snap to floor
+      obj.position.x = 0;
+      obj.position.z = 0;
+      
+      // Snap to floor to ensure it sits on ground
       snapToFloor(obj);
+
+      // Log for debugging
+      console.log(`Added ${modelDef.name} at position:`, obj.position, 'size:', size);
 
       placedObjects.push(obj);
       selectObject(obj);
       showStatus(`Added ${modelDef.name} • Use gizmos to position`);
     },
-    undefined,
+    // Progress callback
+    (xhr) => {
+      // Optional: show loading progress
+      // console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    },
+    // Error callback
     (err) => {
-      console.error(err);
+      console.error('Error loading model:', err, 'URL:', modelUrl);
       // Add a placeholder box so the app remains useful even without real models
       addPlaceholderBox(modelDef);
     }
@@ -594,25 +622,43 @@ function addModelToScene(modelDef) {
 }
 
 function addPlaceholderBox(modelDef) {
-  const sizes = { Seating: [0.8,0.9,0.9], Tables: [1.2,0.75,0.7], Storage: [0.9,1.8,0.45], Bedroom: [1.6,0.5,2.0], Decor: [0.3,1.5,0.3] };
-  const s = sizes[modelDef.category] || [1, 1, 1];
+  // Sane default sizes for different categories
+  const sizes = { 
+    Seating: [0.8, 0.9, 0.9], 
+    Tables: [1.2, 0.75, 0.7], 
+    Storage: [0.9, 1.8, 0.45], 
+    Bedroom: [1.6, 0.5, 2.0], 
+    Decor: [0.3, 1.5, 0.3],
+    Other: [1.0, 1.0, 1.0]
+  };
+  
+  const s = sizes[modelDef.category] || sizes.Other;
+  
   const geo = new THREE.BoxGeometry(s[0], s[1], s[2]);
   const hue = (modelDef.name.charCodeAt(0) * 37) % 360;
   const mat = new THREE.MeshStandardMaterial({
     color: new THREE.Color(`hsl(${hue}, 40%, 45%)`),
     roughness: 0.6,
     metalness: 0.1,
+    transparent: true,
+    opacity: 0.9
   });
+  
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = modelDef.name;
   mesh.userData.modelDef = modelDef;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
+  
+  // Position at room center
+  mesh.position.set(0, 0, 0);
+  
   scene.add(mesh);
   snapToFloor(mesh);
+  
   placedObjects.push(mesh);
   selectObject(mesh);
-  showStatus(`⚠ ${modelDef.file} not found — showing placeholder box`);
+  showStatus(`⚠ Model file not found — showing placeholder box for ${modelDef.name}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -678,7 +724,7 @@ function onCanvasClick(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Properties panel
+// Properties panel with uniform scaling
 // ─────────────────────────────────────────────────────────────────────
 function updatePropsPanel() {
   if (!selectedObject) return;
@@ -698,9 +744,28 @@ function updatePropsPanel() {
   document.getElementById('prop-sx').value = sx;
   document.getElementById('prop-sy').value = sy;
   document.getElementById('prop-sz').value = sz;
+  
+  // Update uniform scale field if it exists
+  const uniformScaleField = document.getElementById('prop-uniform');
+  if (uniformScaleField) {
+    // Use average of scales for uniform field
+    const avgScale = ((parseFloat(sx) + parseFloat(sy) + parseFloat(sz)) / 3).toFixed(2);
+    uniformScaleField.value = avgScale;
+  }
 
   // Sync mobile sheet
   if (window.onPropsUpdated) window.onPropsUpdated(o.name, px, pz, ry, sx, sy, sz);
+}
+
+// Apply uniform scaling
+function applyUniformScale(value) {
+  if (!selectedObject) return;
+  const val = parseFloat(value);
+  if (isNaN(val) || val <= 0) return;
+  
+  selectedObject.scale.set(val, val, val);
+  snapToFloor(selectedObject);
+  updatePropsPanel();
 }
 
 // Apply prop inputs to object
@@ -714,7 +779,7 @@ function bindPropInput(id, apply) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// UI bindings
+// UI bindings (updated with uniform scale)
 // ─────────────────────────────────────────────────────────────────────
 function bindUI() {
   // Search
@@ -770,6 +835,14 @@ function bindUI() {
   bindPropInput('prop-sx', v => { selectedObject.scale.x = Math.max(0.01, v); });
   bindPropInput('prop-sy', v => { selectedObject.scale.y = Math.max(0.01, v); });
   bindPropInput('prop-sz', v => { selectedObject.scale.z = Math.max(0.01, v); });
+  
+  // Uniform scale input (add this to your HTML if not present)
+  const uniformField = document.getElementById('prop-uniform');
+  if (uniformField) {
+    uniformField.addEventListener('change', function() {
+      applyUniformScale(this.value);
+    });
+  }
 
   // Keyboard shortcuts
   window.addEventListener('keydown', onKeyDown);
